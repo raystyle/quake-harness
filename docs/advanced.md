@@ -12,13 +12,13 @@
 | `QUAKE_HOST` | API 域名 | https://qiye.quake.360.net |
 | `QUAKEH_HOME` | 数据根总开关(便携/CI) | 平台标准目录(见下) |
 
-Key 加载链:进程环境变量 > cwd `.env` > 用户配置目录 `.env`(回落层)。
+Key 加载链:进程环境变量 > cwd `.env` > 用户应用数据目录 `.env`(Windows %APPDATA%,macOS Application Support,Linux ~/.config;macOS 兼容 ~/.config 旧位)。
 
 ## 数据目录
 
 | 层 | Windows | Linux | macOS |
 |---|---|---|---|
-| config(.env 回落) | `%APPDATA%\quake-h` | `~/.config/quake-h` | `~/.config/quake-h` |
+| config(.env 回落) | `%APPDATA%\quake-h` | `~/.config/quake-h` | `~/Library/Application Support/quake-h` |
 | data(月库/runs/限流) | `%LOCALAPPDATA%\quake-h` | `~/.local/share/quake-h` | 同左 |
 | cache(raw TTL 缓存) | `%LOCALAPPDATA%\quake-h` | `~/.cache/quake-h` | 同左 |
 

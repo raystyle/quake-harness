@@ -90,11 +90,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true
-      - name: Rename to per-platform names
+      # 每个 artifact 落在 dist/<artifact-name>/quake-h(.exe),按目录重命名
+      - name: Flatten to per-platform names
         run: |
-          mv dist/quake-h dist/quake-h-linux-x64 || true
-          mv dist/quake-h.exe dist/quake-h-windows-x64.exe || true
+          cd dist
+          for d in quake-h-*/; do
+            name="${d%/}"
+            if [ -f "$d/quake-h.exe" ]; then mv "$d/quake-h.exe" "$name.exe"
+            elif [ -f "$d/quake-h" ]; then mv "$d/quake-h" "$name"
+            fi
+            rm -rf "$d"
+          done
+          ls -la
       - name: Generate sha256 sidecar
         run: |
           cd dist && for f in quake-h-*; do sha256sum "$f" | awk '{print $1}' > "$f.sha256"; done && ls -la

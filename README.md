@@ -1,16 +1,54 @@
-# quake-h
+# quake-harness
 
-360 Quake 网络空间测绘 API 的 CLI 与 MCP 双形态工具(Bun + incur + zod)。查询即归档:自动落本地缓存与 SQLite 按月资产库,支持流式 Parquet 导出,自适应限流护航。
+360 Quake 网络空间测绘 API 的 CLI 与 MCP 双形态工具(Bun + incur + zod),命令名 `quake-h`。查询即归档:自动落本地缓存与 SQLite 按月资产库,支持流式 Parquet 导出,自适应限流护航。
 
 ## 安装
 
-二进制(无需 Bun):从 [Releases](https://github.com/raystyle/quake-harness/releases) 下载对应平台(linux-x64/arm64/musl、windows-x64/arm64、darwin-x64/arm64,附 sha256)。
+二进制(无需 Bun):从 [Releases](https://github.com/raystyle/quake-harness/releases) 下载对应平台(linux-x64/arm64/musl、windows-x64/arm64、darwin-x64/arm64,附 sha256),按下面「加入 PATH」部署后即可全局使用 `quake-h`。
 
-源码:
+### 各系统加入 PATH
+
+**Linux**:
+
+```sh
+curl -LO https://github.com/raystyle/quake-harness/releases/latest/download/quake-h-linux-x64
+chmod +x quake-h-linux-x64
+sudo mv quake-h-linux-x64 /usr/local/bin/quake-h
+quake-h --version
+```
+
+**macOS**(Apple Silicon 为例,首次运行如遇 Gatekeeper 拦截见下方说明):
+
+```sh
+curl -LO https://github.com/raystyle/quake-harness/releases/latest/download/quake-h-darwin-arm64
+chmod +x quake-h-darwin-arm64
+sudo mkdir -p /usr/local/bin
+sudo mv quake-h-darwin-arm64 /usr/local/bin/quake-h
+quake-h --version
+```
+
+Gatekeeper 拦截(未签名二进制)时执行:`sudo xattr -d com.apple.quarantine /usr/local/bin/quake-h`
+
+**Windows**(PowerShell):
+
+```powershell
+# 建独立目录并下载(示例 x64;ARM 机换 quake-h-windows-arm64.exe)
+mkdir $env:LOCALAPPDATA\quake-h-bin -Force
+Invoke-WebRequest https://github.com/raystyle/quake-harness/releases/latest/download/quake-h-windows-x64.exe -OutFile $env:LOCALAPPDATA\quake-h-bin\quake-h.exe
+
+# 加入当前用户 PATH
+[Environment]::SetEnvironmentVariable('Path', $env:Path + ';' + "$env:LOCALAPPDATA\quake-h-bin", 'User')
+
+# 重开终端后生效
+quake-h --version
+```
+
+**源码方式**(需 [Bun](https://bun.sh)):
 
 ```sh
 git clone https://github.com/raystyle/quake-harness && cd quake-harness
 bun install
+bun src/cli.ts user        # 开发运行;alias quake-h='bun /path/to/quake-harness/src/cli.ts' 可全局
 ```
 
 ## 配置
@@ -22,7 +60,7 @@ bun install
 QuakeAPIKey=你的key
 ```
 
-`.env` 放运行命令时的 cwd(源码开发即项目根)。也可用环境变量 `QUAKE_API_KEY`(优先级更高,适合 CI/二进制任意目录调用)。
+`.env` 放运行命令时的 cwd(源码开发即项目根)。二进制全局部署后,推荐放用户应用数据目录(Windows `%APPDATA%\quake-h\.env`,Linux `~/.config/quake-h/.env`,macOS `~/Library/Application Support/quake-h/.env`),任意目录都能读到。也可用环境变量 `QUAKE_API_KEY`(优先级更高,适合 CI)。
 
 验证:
 

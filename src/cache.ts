@@ -20,10 +20,11 @@ function platformDir(kind: 'config' | 'data' | 'cache'): string {
     return join(homedir(), '.quake-h') // 环境变量缺失的兜底
   }
   if (os === 'darwin') {
-    // macOS CLI 惯例:与 gh 一致用 ~/.config(macOS 对 XDG 变量也普遍尊重)
+    // macOS 标准应用数据目录;XDG 变量优先(装了 xdg 路径约定的用户)
     const xdg = kind === 'config' ? process.env.XDG_CONFIG_HOME : kind === 'data' ? process.env.XDG_DATA_HOME : process.env.XDG_CACHE_HOME
     if (xdg) return join(xdg, 'quake-h')
-    return kind === 'cache' ? join(homedir(), '.cache', 'quake-h') : join(homedir(), '.config', 'quake-h')
+    const as = join(homedir(), 'Library', 'Application Support', 'quake-h')
+    return kind === 'cache' ? join(homedir(), 'Library', 'Caches', 'quake-h') : as
   }
   // Linux/其他:完整 XDG
   const xdg =
@@ -32,6 +33,17 @@ function platformDir(kind: 'config' | 'data' | 'cache'): string {
     : process.env.XDG_CACHE_HOME
   const base = xdg || (kind === 'config' ? join(homedir(), '.config') : kind === 'data' ? join(homedir(), '.local', 'share') : join(homedir(), '.cache'))
   return join(base, 'quake-h')
+}
+
+/**
+ * .env 回落候选目录(按序探测):
+ * 1. 平台 config 目录(Windows %APPDATA%,macOS Application Support,Linux ~/.config)
+ * 2. macOS 兼容 ~/.config(gh 风格旧位置)
+ */
+function envFallbackDirs(): string[] {
+  const dirs = [quakeHConfig()]
+  if (platform() === 'darwin') dirs.push(join(homedir(), '.config', 'quake-h'))
+  return dirs
 }
 
 /** 旧版单点目录(~/.quake-h),迁移探测用 */
@@ -95,15 +107,17 @@ export function quakeHConfig(): string {
  * 调用方在进程变量与 cwd 都取不到 Key 时再读本函数。
  */
 export function readUserEnvFallback(name: string): string | undefined {
-  const p = join(quakeHConfig(), '.env')
-  if (!existsSync(p)) return undefined
-  try {
-    const text = readFileSync(p, 'utf-8')
-    for (const line of text.split('\n')) {
-      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
-      if (m && m[1] === name) return (m[2] ?? '').replace(/^["']|["']$/g, '')
-    }
-  } catch {}
+  for (const dir of envFallbackDirs()) {
+    const p = join(dir, '.env')
+    if (!existsSync(p)) continue
+    try {
+      const text = readFileSync(p, 'utf-8')
+      for (const line of text.split('\n')) {
+        const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/)
+        if (m && m[1] === name) return (m[2] ?? '').replace(/^["']|["']$/g, '')
+      }
+    } catch {}
+  }
   return undefined
 }
 
@@ -141,8 +155,10 @@ function today(): string {
 /**
  * 读缓存:命中且未过期返回原文,否则 null。
  * 只知道 key 不知道日期,扫 raw 下各日期目录找 key.json(目录少,可接受)。
+ * ttlHours <= 0 视为永不读缓存(scroll 族游标翻页语义)。
  */
 export function readCache(method: string, key: string, ttlHours: number): CacheEntry | null {
+  if (ttlHours <= 0) return null
   const base = join(quakeHCache(), 'raw', method)
   if (!existsSync(base)) return null
   const { readdirSync } = require('node:fs') as typeof import('node:fs')
