@@ -142,4 +142,4 @@ bun build --compile --minify --sourcemap src/cli.ts --outfile dist/quake-h
 
 ## 权限说明
 
-`compare` 与 `scan` 族接口需账户开通 `front.api.doc.compare` / `front.api.fast_scan` 权限,漏洞数据索引需漏洞数据角色,均联系 quake@360.cn。接口实测细节见 `docs/quake_api_notes.md` 与 `docs/compare_docs_api_notes.md`。
+`compare` 与 `scan` 族接口需账户具备 `front.api.doc.compare` / `front.api.fast_scan` 权限,漏洞数据索引需漏洞数据角色;未开通时报 q3012/q2001。接口实测细节见 `docs/quake_api_notes.md` 与 `docs/compare_docs_api_notes.md`。

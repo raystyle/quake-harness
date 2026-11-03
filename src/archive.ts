@@ -65,8 +65,57 @@ function openRunsDb(): Database {
       ts TEXT NOT NULL,
       PRIMARY KEY (query_key, facet, bucket_key, ts)
     );
+    CREATE TABLE IF NOT EXISTS scan_tasks (
+      task_id TEXT PRIMARY KEY,
+      target TEXT NOT NULL,
+      port_list TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Running',
+      progress REAL NOT NULL DEFAULT 0,
+      total INTEGER,
+      send INTEGER,
+      success INTEGER,
+      failed INTEGER,
+      result_count INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `)
   return db
+}
+
+/** scan 任务登记/刷新 */
+export interface ScanTaskRecord {
+  taskId: string
+  target: string
+  portList: string
+  status: string
+  progress: number
+  total?: number | null
+  send?: number | null
+  success?: number | null
+  failed?: number | null
+  resultCount?: number | null
+}
+
+export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
+  const now = new Date().toISOString()
+  db.query(`
+    INSERT INTO scan_tasks (task_id, target, port_list, status, progress, total, send, success, failed, result_count, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(task_id) DO UPDATE SET
+      status = excluded.status,
+      progress = excluded.progress,
+      total = excluded.total,
+      send = excluded.send,
+      success = excluded.success,
+      failed = excluded.failed,
+      result_count = excluded.result_count,
+      updated_at = excluded.updated_at
+  `).run(
+    r.taskId, r.target, r.portList, r.status, r.progress,
+    r.total ?? null, r.send ?? null, r.success ?? null, r.failed ?? null, r.resultCount ?? null,
+    now, now,
+  )
 }
 
 /** 月库缓存:YYYYMM.sqlite */

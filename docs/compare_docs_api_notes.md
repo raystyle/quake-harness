@@ -9,8 +9,7 @@ Key:`QuakeAPIKey`(.env)
 - Header:`X-QuakeToken: <key>` + `Content-Type: application/json`
 - 参数:`doc_ids`,类型 `List[str]`,必需,长度必须大于 2(即至少 3 个)
 - doc id 格式:`ip_port_transport`(如 `8.149.67.89_2121_tcp`),来自 `quake_service` 搜索结果每条记录的 `id` 字段
-- 权限:需要 `front.api.doc.compare` 权限,缺权限报 `q3012 Missing permission [['front.api.doc.compare']]`
-- 权限申请:联系 quake@360.cn
+- 权限:需要 `front.api.doc.compare` 权限,缺权限报 `q3012 Missing permission [['front.api.doc.compare']]`(当前测试账户已开通)
 
 ### 实测错误码轨迹
 
@@ -46,4 +45,4 @@ curl -X POST "https://qiye.quake.360.net/api/v3/search/compare/docs" \
 
 ## 结论
 
-compare/docs 是 Quake 服务数据的多文档对比接口:POST,JSON body 传 `doc_ids`(至少 3 个,值为 `quake_service` 返回的 `id` 字段)。当前账户需要开通 `front.api.doc.compare` 权限(联系 quake@360.cn)才能拿到返回 data。
+compare/docs 是 Quake 服务数据的多文档对比接口:POST,JSON body 传 `doc_ids`(至少 3 个,值为 `quake_service` 返回的 `id` 字段)。已实测 code 0,返回多文档字段对比数据(含 control.scanner_hostname/service.name/task.* 等元信息)。

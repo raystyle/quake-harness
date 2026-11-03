@@ -38,5 +38,5 @@ bun src/cli.ts <cmd> --json     # 机器形输出(调试信封)
 
 ## API 实测档案
 
-- `docs/quake_api_notes.md`:全部接口状态总表、CVE 详情返回结构、待开通权限清单(compare/scan 族需 front.api.doc.compare / front.api.fast_scan)。
+- `docs/quake_api_notes.md`:全部接口状态总表、CVE 详情返回结构、接口权限说明(compare/scan 族需 front.api.doc.compare / front.api.fast_scan,漏洞索引需漏洞数据角色)。
 - `docs/compare_docs_api_notes.md`:compare/docs 参数规则与错误码轨迹(doc_ids 至少 3 个,格式 ip_port_transport)。

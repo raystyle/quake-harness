@@ -59,11 +59,10 @@ Header: X-QuakeToken
 - 不存在的 CVE(如 CVE-0000-0000)返回 `code 0` + 空 `data {}`,不报错
 - 该接口免费,实测未扣积分
 
-## 待开通权限(联系 quake@360.cn)
+## 权限说明
 
-- `front.api.fast_scan`(主动扫描三接口)
-- `front.api.doc.compare`(多文档对比)
-- 漏洞数据索引(QuakeVulnerabilityURL,报错原文不含权限码,需开通漏洞数据角色)
+当前测试账户已开通全部接口权限(compare/scan 族/vulnerability 索引)。
+未开通的账户调用会收到 q3012(权限码缺失)或 q2001(索引权限),需联系 Quake 管理员。
 
 ## 关联
 

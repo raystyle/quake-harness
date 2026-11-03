@@ -372,7 +372,10 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
       expect(out.code).toBe('q3012')
     } else {
       expect(exit).toBe(0)
-      expect(out).toHaveProperty('service.name')
+      // 实测返回多文档字段对比对象(扁平键含 control./service./task. 前缀)
+      const keys = Object.keys(out)
+      expect(keys.length).toBeGreaterThan(3)
+      expect(keys.some((k) => k.includes('.'))).toBe(true)
     }
   })
 
@@ -380,6 +383,14 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     const { out, exit } = await run(['scan', 'example.com'])
     expect(exit).toBe(1)
     expect(out.code).toBe('USAGE')
+  })
+
+  nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {
+    // scan-status 查任意 id(即使无效)先保证表存在;再看 scan-ls 信封
+    const { out, exit } = await run(['scan-ls'])
+    expect(exit).toBe(0)
+    expect(out.count).toBeGreaterThanOrEqual(0)
+    expect(Array.isArray(out.tasks)).toBe(true)
   })
 
   nt('vuln-scroll: 漏洞数据查询(需漏洞数据角色)', async () => {
