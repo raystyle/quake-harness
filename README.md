@@ -76,6 +76,7 @@ quake-h host-search 'ip:"1.2.3.4"'                          # 主机查询(带�
 quake-h cve CVE-2021-44228                                  # CVE 详情(免费)
 quake-h syntax cert                                         # 检索语法离线查(129 字段)
 quake-h export --sql 'SELECT count(*) FROM assets'          # 归档离线分析
+quake-h doctor                                              # 环境体检(离线;--net 免费探活)
 ```
 
 数据自动落平台标准目录(gh 模型 XDG/AppData),详见 docs/advanced.md。
@@ -92,4 +93,4 @@ quake-h mcp add         # 注册进 Claude Code / Cursor 等
 
 命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。
 
-测试 `bun test`(43 项);CI 打 tag `v*` 触发三平台编译发布。
+测试 `bun test`(46 项);CI 打 tag `v*` 触发三平台编译发布。

@@ -1,0 +1,26 @@
+import { z } from 'incur'
+import { quakeRequest, pickToken, type QuakeCli } from '../quake'
+
+/** 多文档对比族:compare */
+export function registerCompareCommands(cli: QuakeCli): void {
+  cli.command('compare', {
+    description: '多文档对比(至少 3 个 doc id,需 front.api.doc.compare 权限)',
+    args: z.object({
+      docIds: z.array(z.string()).min(3).describe('doc id 列表,来自 search 结果的 id 字段,至少 3 个'),
+    }),
+    examples: [
+      {
+        args: { docIds: ['8.149.67.89_2121_tcp', '47.99.142.226_2121_tcp', '147.224.236.5_2121_tcp'] },
+        description: '对比 3 个服务文档',
+      },
+    ],
+    async run(c) {
+      const token = pickToken(c)
+      const json = (await quakeRequest('/api/v3/search/compare/docs', token, {
+        method: 'POST',
+        body: { doc_ids: c.args.docIds },
+      })) as { data?: unknown }
+      return json.data ?? {}
+    },
+  })
+}

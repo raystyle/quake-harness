@@ -273,6 +273,45 @@ describe('CLI 离线命令', () => {
     expect(exit).toBe(0)
     expect(Array.isArray(out.runs)).toBe(true)
   })
+
+  test('doctor: 离线体检信封', async () => {
+    const { out, exit } = await run(['doctor'])
+    expect(exit).toBe(0)
+    expect(['ok', 'warn', 'fail']).toContain(out.status)
+    expect(out.net).toBe(false)
+    expect(out.net_probe).toBeNull()
+    // 七项恒跑检查齐全,状态值合法
+    expect(out.checks.length).toBeGreaterThanOrEqual(7)
+    const names = out.checks.map((k: any) => k.name)
+    for (const n of ['token', 'dir-data', 'dir-cache', 'dir-config', 'archive-db', 'ratelimit', 'legacy-home']) {
+      expect(names).toContain(n)
+    }
+    for (const k of out.checks) expect(['ok', 'warn', 'fail']).toContain(k.status)
+    // 受控 QUAKEH_HOME 下三目录都应落在其中且可写
+    expect(out.data_dir.startsWith(home)).toBe(true)
+    expect(out.cache_dir.startsWith(home)).toBe(true)
+    expect(out.config_dir.startsWith(home)).toBe(true)
+    expect(out.archive.month_list).toEqual(expect.any(Array))
+  })
+
+  test('doctor --net 无 token 不崩', async () => {
+    // 抹掉 key 再探活:net 项应 fail 但命令仍出数据信封
+    const proc = Bun.spawnSync(['bun', 'src/cli.ts', 'doctor', '--net', '--json'], {
+      cwd: ROOT,
+      env: { ...process.env, QUAKEH_HOME: home, QuakeAPIKey: '', QUAKE_API_KEY: '', QUAKE_TOKEN: '' },
+      stdout: 'pipe',
+      stderr: 'pipe',
+      timeout: 30000,
+    })
+    const exit = proc.exitCode ?? 0
+    const out = JSON.parse(proc.stdout.toString().trim())
+    expect(exit).toBe(0)
+    expect(out.net).toBe(true)
+    expect(out.net_probe.ok).toBe(false)
+    expect(out.net_probe.credit).toBeNull()
+    const netCheck = out.checks.find((k: any) => k.name === 'net')
+    expect(netCheck.status).toBe('fail')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -387,6 +426,15 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     const { out, exit } = await run(['scan', 'example.com'])
     expect(exit).toBe(1)
     expect(out.code).toBe('USAGE')
+  })
+
+  nt('doctor --net: 免费探活', async () => {
+    const { out, exit } = await run(['doctor', '--net'])
+    expect(exit).toBe(0)
+    expect(out.net).toBe(true)
+    expect(out.net_probe.ok).toBe(true)
+    expect(typeof out.net_probe.latency_ms).toBe('number')
+    expect(out.net_probe.host).toContain('quake.360.net')
   })
 
   nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {
