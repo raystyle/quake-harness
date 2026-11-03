@@ -91,12 +91,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-      # build 已用最终资产名,各目录文件名唯一,上移即可
+      # build 已用最终资产名;经 /tmp 中转上移,避免无扩展名产物与同名 artifact 目录
+      # 撞车(mv 进同名目录后被 rm -rf 误删,windows 带 .exe 不受影响正是此坑)
       - name: Flatten artifacts
         run: |
           cd dist
-          mv quake-h-*/* . 2>/dev/null || true
+          mkdir -p /tmp/qkh-flat
+          mv quake-h-*/* /tmp/qkh-flat/
           rm -rf quake-h-*/
+          mv /tmp/qkh-flat/* .
           ls -la
       - name: Generate sha256 sidecar
         run: |
