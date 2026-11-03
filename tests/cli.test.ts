@@ -492,7 +492,7 @@ describe('缓存落盘结构', () => {
 // ---------------------------------------------------------------------------
 
 describe('MCP stdio', () => {
-  test('initialize + tools/list + search_tools + call_read_tool(syntax)', async () => {
+  test('initialize + tools/list 直出面 + tools/call(syntax/doctor)', async () => {
     const proc = Bun.spawn(['bun', 'src/cli.ts', '--mcp'], {
       cwd: ROOT,
       env: { ...process.env, QUAKEH_HOME: home },
@@ -519,9 +519,9 @@ describe('MCP stdio', () => {
     send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } })
     send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
     await Bun.sleep(1500)
-    send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'search_tools', arguments: { query: 'syntax' } } })
+    send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'syntax', arguments: { keyword: 'tls' } } })
     await Bun.sleep(1500)
-    send({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'call_write_tool', arguments: { name: 'syntax', arguments: { keyword: 'tls' } } } })
+    send({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'doctor', arguments: {} } })
     await Bun.sleep(2000)
     proc.stdin.end()
     await reader.catch(() => {})
@@ -529,12 +529,16 @@ describe('MCP stdio', () => {
     const byId = (id: number) => responses.find((r) => r.id === id)
     const init = byId(1)
     expect(init?.result?.serverInfo?.name).toBe('quake-h')
+    // 直出面:每个命令注册为常规工具,而非 search_tools 渐进发现四件套
     const list = byId(2)
-    expect(JSON.stringify(list?.result?.tools)).toContain('search_tools')
-    const found = byId(3)
-    expect(JSON.stringify(found?.result)).toContain('syntax')
-    const called = byId(4)
+    const toolNames = (list?.result?.tools ?? []).map((t: any) => t.name)
+    expect(toolNames.length).toBe(22)
+    for (const n of ['syntax', 'doctor', 'search', 'user', 'export']) expect(toolNames).toContain(n)
+    expect(toolNames).not.toContain('search_tools')
+    const called = byId(3)
     expect(JSON.stringify(called?.result)).toContain('tls_SAN')
+    const doctored = byId(4)
+    expect(JSON.stringify(doctored?.result)).toContain('checks')
     proc.kill()
   }, 30000)
 })
