@@ -69,16 +69,16 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - name: Build
-        run: bun build --compile --minify --sourcemap --target=${{ matrix.target }} src/cli.ts --outfile dist/quake-h${{ matrix.ext }}
+        run: bun build --compile --minify --sourcemap --target=${{ matrix.target }} src/cli.ts --outfile dist/${{ matrix.asset }}${{ matrix.ext }}
       - name: Smoke test binary
         if: matrix.target != 'bun-linux-arm64' && matrix.target != 'bun-linux-x64-musl' && matrix.target != 'bun-windows-arm64'
-        run: dist/quake-h${{ matrix.ext }} --version && dist/quake-h${{ matrix.ext }} syntax tls
+        run: dist/${{ matrix.asset }}${{ matrix.ext }} --version && dist/${{ matrix.asset }}${{ matrix.ext }} syntax tls
         shell: bash
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: dist/quake-h${{ matrix.ext }}
+          path: dist/${{ matrix.asset }}${{ matrix.ext }}
           if-no-files-found: error
 
   release:
@@ -91,17 +91,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-      # 每个 artifact 落在 dist/<artifact-name>/quake-h(.exe),按目录重命名
-      - name: Flatten to per-platform names
+      # build 已用最终资产名,各目录文件名唯一,上移即可
+      - name: Flatten artifacts
         run: |
           cd dist
-          for d in quake-h-*/; do
-            name="${d%/}"
-            if [ -f "$d/quake-h.exe" ]; then mv "$d/quake-h.exe" "$name.exe"
-            elif [ -f "$d/quake-h" ]; then mv "$d/quake-h" "$name"
-            fi
-            rm -rf "$d"
-          done
+          mv quake-h-*/* . 2>/dev/null || true
+          rm -rf quake-h-*/
           ls -la
       - name: Generate sha256 sidecar
         run: |
