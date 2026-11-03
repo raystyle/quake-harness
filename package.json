@@ -1,0 +1,24 @@
+{
+  "name": "quake-h",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "bun check"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "hyparquet": "^1.32.0",
+    "hyparquet-writer": "^0.18.0",
+    "incur": "^0.7.1",
+    "zod": "^4.6.7"
+  },
+  "bin": {
+    "quake-h": "./src/cli.ts"
+  }
+}
