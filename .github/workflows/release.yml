@@ -67,6 +67,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+      - run: bun install --frozen-lockfile
       - name: Build
         run: bun build --compile --minify --sourcemap --target=${{ matrix.target }} src/cli.ts --outfile dist/quake-h${{ matrix.ext }}
       - name: Smoke test binary

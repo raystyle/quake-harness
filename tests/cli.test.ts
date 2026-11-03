@@ -353,9 +353,13 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
   })
 
   nt('icon: favicon 相似度', async () => {
-    const { out, exit } = await run(['icon', '827fd6c561d4b1f932f75e0f9a17f766', '--size', '1'])
-    expect(exit).toBe(0)
-    expect(out.icons[0].doc_count).toBeGreaterThan(1000)
+    let r = await run(['icon', '827fd6c561d4b1f932f75e0f9a17f766', '--size', '1'])
+    if (r.exit !== 0 || !r.out?.icons?.length) {
+      await Bun.sleep(5000)           // 限流静默/网络抖动宽容:重试一次
+      r = await run(['icon', '827fd6c561d4b1f932f75e0f9a17f766', '--size', '1'])
+    }
+    expect(r.exit).toBe(0)
+    expect(r.out.icons[0].doc_count).toBeGreaterThan(1000)
   })
 
   nt('scroll: 游标返回', async () => {
