@@ -9,7 +9,7 @@ const includeServiceFields = stringList(
 ).optional()
 
 export function registerServiceCommands(cli: QuakeCli): void {
-  cli.command('search', {
+  cli.command('service-search', {
     description: '服务数据实时查询(小批量,每条结果扣 1 积分)',
     args: z.object({
       query: z.string().describe('Quake 检索语法,如 "service: http AND country: CN"'),
@@ -83,15 +83,15 @@ export function registerServiceCommands(cli: QuakeCli): void {
         cta: {
           description: '下一步:',
           commands: [
-            { command: 'scroll', args: { query: c.args.query }, description: '深度翻页拉取更多' },
-            { command: 'agg', args: { query: c.args.query }, description: '聚合统计分布' },
+            { command: 'service-scroll', args: { query: c.args.query }, description: '深度翻页拉取更多' },
+            { command: 'service-agg', args: { query: c.args.query }, description: '聚合统计分布' },
           ],
         },
       }
     },
   })
 
-  cli.command('scroll', {
+  cli.command('service-scroll', {
     description: '服务数据深度查询(游标翻页,适合批量拉取)',
     args: z.object({
       query: z.string().describe('Quake 检索语法'),
@@ -152,7 +152,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
                 description: '下一步:',
                 commands: [
                   {
-                    command: 'scroll',
+                    command: 'service-scroll',
                     args: { query: c.args.query },
                     options: { paginationId },
                     description: '用游标取下一页(其余参数保持不变)',
@@ -165,7 +165,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
     },
   })
 
-  cli.command('agg', {
+  cli.command('service-agg', {
     description: '服务数据聚合统计(最多同时聚合 2 个字段)',
     args: z.object({
       query: z.string().describe('Quake 检索语法'),

@@ -16,7 +16,7 @@ import { registerLocalCommands } from './commands/local'
 import { registerDoctorCommands } from './commands/doctor'
 
 registerAccountCommands(cli)       // user
-registerServiceCommands(cli)       // search, scroll, agg
+registerServiceCommands(cli)       // service-search, service-scroll, service-agg
 registerCveCommands(cli)           // cve
 registerCompareCommands(cli)       // compare
 registerScanCommands(cli)          // scan, scan-status, scan-result, scan-ls

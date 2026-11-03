@@ -29,8 +29,8 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 
 ## 3. 工作流:先免费后付费
 
-1. **免费定形**:`syntax` 查字段可用性 → `agg` 多切面(country/asn/org/port/title/app_version)摸清桶成分与量级,全部零积分
-2. **付费抽样**:桶验明无污染后才 `search` 抽 10 条看活体与归档(每条 1 积分)
+1. **免费定形**:`syntax` 查字段可用性 → `service-agg` 多切面(country/asn/org/port/title/app_version)摸清桶成分与量级,全部零积分
+2. **付费抽样**:桶验明无污染后才 `service-search` 抽 10 条看活体与归档(每条 1 积分)
 3. **归档复用**:抽样自动入库,后续用 `export --sql` 离线分析,不重复花钱
 
 ## 4. 噪声剔除手法(高价值资产锁定)
@@ -52,6 +52,6 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 ```sh
 bun src/cli.ts syntax <keyword>              # 字段可用性,免费
 bun src/cli.ts cve <cve-id>                  # CVE 详情/固定版,免费
-bun src/cli.ts agg '<query>' --by <field>    # 切面摸桶,免费
-bun src/cli.ts search '<query>' --size 10    # 抽样归档,每条 1 积分
+bun src/cli.ts service-agg '<query>' --by <field>    # 切面摸桶,免费
+bun src/cli.ts service-search '<query>' --size 10    # 抽样归档,每条 1 积分
 ```

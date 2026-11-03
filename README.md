@@ -71,7 +71,7 @@ bun src/cli.ts user    # 或二进制 quake-h user
 ## 基础使用
 
 ```sh
-quake-h search 'service: http AND country: "CN"' --size 5   # 服务查询(每条 1 积分,24h 缓存)
+quake-h service-search 'service: http AND country: "CN"' --size 5   # 服务查询(每条 1 积分,24h 缓存)
 quake-h host-search 'ip:"1.2.3.4"'                          # 主机查询(带端口服务视图)
 quake-h cve CVE-2021-44228                                  # CVE 详情(免费)
 quake-h syntax cert                                         # 检索语法离线查(129 字段)

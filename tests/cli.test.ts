@@ -346,11 +346,11 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
   })
 
   nt('agg: 聚合与缓存', async () => {
-    const { out, exit } = await run(['agg', 'country: CN', '--by', 'service', '--size', '3'])
+    const { out, exit } = await run(['service-agg', 'country: CN', '--by', 'service', '--size', '3'])
     expect(exit).toBe(0)
     expect(out.aggregations.service.length).toBe(3)
     expect(out.aggregations.service[0].doc_count).toBeGreaterThan(0)
-    const second = await run(['agg', 'country: CN', '--by', 'service', '--size', '3'])
+    const second = await run(['service-agg', 'country: CN', '--by', 'service', '--size', '3'])
     expect(second.out.cache_hit).toBe(true)
   })
 
@@ -363,8 +363,8 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     }
   })
 
-  nt('search: 扣费查询归档链路', async () => {
-    const { out, exit } = await run(['search', 'service: http', '--size', '2', '--include', 'ip,port,service.name'])
+  nt('service-search: 扣费查询归档链路', async () => {
+    const { out, exit } = await run(['service-search', 'service: http', '--size', '2', '--include', 'ip,port,service.name'])
     expect(exit).toBe(0)
     expect(out.count).toBe(2)
     expect(out.archived).toBe(2)
@@ -401,8 +401,8 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(r.out.icons[0].doc_count).toBeGreaterThan(1000)
   })
 
-  nt('scroll: 游标返回', async () => {
-    const { out, exit } = await run(['scroll', 'service: http', '--size', '1', '--include', 'ip,port,service.name'])
+  nt('service-scroll: 游标返回', async () => {
+    const { out, exit } = await run(['service-scroll', 'service: http', '--size', '1', '--include', 'ip,port,service.name'])
     expect(exit).toBe(0)
     expect(out.count).toBe(1)
     expect(out.pagination_id).toMatch(/^[0-9a-f]{20,}$/)
@@ -533,7 +533,7 @@ describe('MCP stdio', () => {
     const list = byId(2)
     const toolNames = (list?.result?.tools ?? []).map((t: any) => t.name)
     expect(toolNames.length).toBe(22)
-    for (const n of ['syntax', 'doctor', 'search', 'user', 'export']) expect(toolNames).toContain(n)
+    for (const n of ['syntax', 'doctor', 'service-search', 'user', 'export']) expect(toolNames).toContain(n)
     expect(toolNames).not.toContain('search_tools')
     const called = byId(3)
     expect(JSON.stringify(called?.result)).toContain('tls_SAN')
