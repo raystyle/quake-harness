@@ -602,6 +602,15 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     const big = await run(['service-search', 'service: http', '--size', '500000'])
     expect(big.exit).toBe(1)
     expect(big.out.code).toBe('USAGE')
+    // 语法平衡守卫:未闭合引号/括号
+    for (const q of ['title:"unclosed', '(a AND b', 'a) OR b']) {
+      const g = await run(['service-search', q, '--size', '1'])
+      expect(g.exit).toBe(1)
+      expect(g.out.code).toBe('USAGE')
+    }
+    // 合法带引号/括号语法不受影响(守卫放行,后续命令正常)
+    const ok = await run(['syntax', 'tls'])
+    expect(ok.exit).toBe(0)
   })
 
   nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {

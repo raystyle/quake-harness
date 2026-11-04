@@ -138,9 +138,19 @@ export function validSize(size: number, max = API_SIZE_MAX): boolean {
   return Number.isInteger(size) && size >= 1 && size <= max
 }
 
-/** CacheKey 守卫:32 位小写 hex(cacheKey 产物,sha256 截断) */
-export function isCacheKey(v: string): v is CacheKey {
-  return /^[0-9a-f]{32}$/.test(v)
+/** Quake 检索语法轻量平衡校验:引号配对(引号外的括号才计数)。
+ *  不校验语义,只拦手滑(未闭合引号/括号会 t6003 烧一次网络往返);
+ *  引号内的括号不参与计数,避免误伤含括号的短语 */
+export function isBalancedQuery(q: string): boolean {
+  let inQuote = false
+  let depth = 0
+  for (const ch of q) {
+    if (ch === '"') { inQuote = !inQuote; continue }
+    if (inQuote) continue
+    if (ch === '(') depth++
+    else if (ch === ')') { depth--; if (depth < 0) return false }
+  }
+  return depth === 0 && !inQuote
 }
 
 /** Month 守卫:'YYYY-MM' */

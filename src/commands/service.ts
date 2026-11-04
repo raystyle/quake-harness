@@ -1,7 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
 import { getDb, upsertAssets, saveAgg } from '../archive'
-import { validSize, API_SIZE_MAX } from '../types'
+import {isBalancedQuery,  validSize, API_SIZE_MAX } from '../types'
 import { parseListBody, parseAggBody } from '../schemas'
 
 /** 服务数据查询族:search / scroll / agg */
@@ -53,6 +53,14 @@ export function registerServiceCommands(cli: QuakeCli): void {
     ],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       // 积分事故防线:size 每条 1 积分,入口拦下超限请求
       if (!validSize(o.size)) {
@@ -152,6 +160,14 @@ export function registerServiceCommands(cli: QuakeCli): void {
     ],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       const body: Record<string, unknown> = {
         query: c.args.query,
@@ -231,6 +247,14 @@ export function registerServiceCommands(cli: QuakeCli): void {
     ],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       const body = {
         query: c.args.query,

@@ -1,7 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, saveAgg } from '../archive'
-import { isIpCidr, validSize, API_SIZE_MAX } from '../types'
+import {isBalancedQuery,  isIpCidr, validSize, API_SIZE_MAX } from '../types'
 import { parseListBody, parseAggBody } from '../schemas'
 
 /** 主机数据族:host-search / host-scroll / host-agg / host-honeypot */
@@ -68,6 +68,14 @@ export function registerHostCommands(cli: QuakeCli): void {
     ],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       // 积分事故防线:每 IP 扣 1 积分,入口拦超限
       if (!validSize(o.size)) {
@@ -133,6 +141,14 @@ export function registerHostCommands(cli: QuakeCli): void {
     examples: [{ args: { query: 'country:"China" AND service: ssh' }, description: '中国 ssh 主机' }],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       const body: Record<string, unknown> = {
         query: c.args.query,
@@ -198,6 +214,14 @@ export function registerHostCommands(cli: QuakeCli): void {
     examples: [{ args: { query: 'country:"China"' }, options: { by: ['service'], size: 5 }, description: '中国主机服务分布' }],
     async run(c) {
       const token = pickToken(c)
+      // 语法平衡守卫:未闭合引号/括号本地拦截,免 t6003 网络往返
+      if (!isBalancedQuery(c.args.query)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'query 引号/括号未闭合(语法形检查,语义校验在服务端)',
+          retryable: false,
+        })
+      }
       const o = c.options
       const body = {
         query: c.args.query,

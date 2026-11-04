@@ -32,6 +32,7 @@ Bun 的 `.env` 加载跟 cwd 不跟脚本路径:项目根外跑 `bun /path/src/c
 - B 层归档:按数据时间分月库 `{data}/2026-11.sqlite`;`data_time` 为 Quake 采集时间(缺失回落观测时刻并打 `data_time_is_observed=1` 标),`first_seen`/`last_seen` 为本地观测;assets 主键 doc_id UPSERT,raw_json 整行保留
 - `runs.sqlite`:query_runs(调用记录与 scroll 断点)、aggs(聚合快照)、scan_tasks(扫描任务簿)
 - 跨月联邦:`export --sql` 的 `FROM assets` 自动改写为全部月库 UNION ALL 子查询
+- 全文检索:各月库带 FTS5 虚表 assets_fts(title/body/server/host,截断 500/8000/200/300),`quake-h fts 'FilesMan'` 离线检索已归档资产(title:b374k 列限定,server:"Apache" AND host:gov.cn 布尔组合)
 
 ## 流式 Parquet 导出
 
@@ -76,7 +77,7 @@ quake-h scan-ls [--status Running]            # 本地任务列表
 }
 ```
 
-渐进披露三段式:`search_tools`(按能力找)→ `get_tool_details`(看 schema)→ `call_read_tool`/`call_write_tool`(执行)。部分命令归 write 类,别只试 read。
+工具面为 direct 直出:每个命令注册为独立常规工具(带完整 inputSchema 与 outputSchema),tools/list 一次可见全部,无需渐进发现。输出契约与命令 output schema 同源。
 
 ## 权限矩阵
 
@@ -91,7 +92,7 @@ quake-h scan-ls [--status Running]            # 本地任务列表
 ## 测试与 CI
 
 ```sh
-bun test        # 43 项;无 Key 时 API 冒烟自动 skip
+bun test        # 项数以实跑为准(cli.test.ts + fixtures.test.ts 两文件);无 Key 时 API 冒烟自动 skip,fixture 回归恒离线可用
 ```
 
 CI 见 .github/workflows/release.yml:tag `v*` 触发,三平台测试矩阵 + 7 目标编译 + sha256 边车发布 Release。
