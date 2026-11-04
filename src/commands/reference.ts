@@ -9,6 +9,7 @@ export function registerReferenceCommands(cli: QuakeCli): void {
     args: z.object({
       dataset: z.enum(['service', 'host', 'service-agg', 'host-agg']).describe('service/host 为可筛选字段,带 -agg 后缀为聚合字段'),
     }),
+    output: z.object({ count: z.number(), cache_hit: z.boolean(), fields: z.array(z.string()) }),
     examples: [{ args: { dataset: 'service' }, description: '服务数据可筛选字段' }],
     async run(c) {
       const token = pickToken(c)
@@ -42,6 +43,15 @@ export function registerReferenceCommands(cli: QuakeCli): void {
       ignoreCache: z.boolean().default(false),
       startTime: z.string().optional().describe('起始时间,格式 2020-10-14 00:00:00,UTC'),
       endTime: z.string().optional().describe('截止时间,同上'),
+    }),
+    output: z.object({
+      cache_hit: z.boolean(),
+      raw_path: z.string().nullable(),
+      icons: z.array(z.object({
+        key: z.string(),
+        doc_count: z.number(),
+        data_prefix: z.string(),
+      })),
     }),
     examples: [{ args: { faviconHash: '827fd6c561d4b1f932f75e0f9a17f766' }, description: '找同 favicon 资产' }],
     async run(c) {

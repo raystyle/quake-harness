@@ -254,15 +254,15 @@ export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `
 | L3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
 | L4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
 
-建议(按性价比排序;1-5 已落地,标记状态):
+建议(全部落地,收档):
 
 1. ~~**标识符品牌类型化**~~ **已落地**(src/types.ts):`DocId/TaskId/CacheKey/Month/DomainName/CveId/FaviconHash/IpCidr` 八品牌 + 伴生守卫;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`dataMonth` 全链 Brand;闭集 `Transport/RawMethod/CacheableMethod/FieldsDataset` 字面量联合。实测收益:scan-status 传非法 id 现在入口 USAGE 快速失败,不再落服务端;domain 语法注入(`evil.cn OR service:telnet`)入口即拦。
-2. **给查询族补 zod output schema**:已落地 4/24(user/doctor/fts/domain);其余命令以 L0/L1 响应解析器(见 4)先行闭合运行时契约,命令级 output schema 后续按需补。
+2. ~~**查询族 zod output schema**~~ **已落地**(24/24 全覆盖):结构化命令用显式 schema(docs/hits/hosts/aggregations/icons/tasks);透传形命令(compare/cve 详情/scan-status/rate)用 z.object({}).passthrough() 声明对象形不锁键;CTA 等附加字段经 passthrough 保留。output schema 同时即 MCP 工具面的输出契约。
 3. ~~**QuakeServiceDoc/QuakeHostDoc 集中 interface**~~ **已落地**(src/types.ts),hostname 双态类型显式。
 4. ~~**CacheEntry.body 收紧 + 响应选择性 schema**~~ **已落地**(src/schemas.ts):`detectQuakeError`(信封探测 + message 归一化,字符串 '0' 判成功)/`parseListBody`(列表形:items/total/paginationId,硬形漂移显式空态)/`parseAggBody`(聚合形)。网络路径与命令消费共用同一组解析器,service/host/domain/vuln-scroll/agg 全部脱离 `as` 断言;信封错误处理收敛单点。TTL_HOURS 经 `satisfies Record<CacheableMethod, number>` 穷尽闭合,keyof 断言已拆。
 5. **积分事故防线** **已落地**:validSize 完整数值域(整数 1-500)入口拦截;domain 上限 100。
 6. ~~**ratelimit.json 逐字段校验**~~ **已落地**:readState 数值域 finite/非负整数逐项回落,updatedAt ISO 可解析校验,损坏文件不再进运算。
-7. 低优先:raw 落盘加 schema_version 字段(Envelope 内已可从 body 形状探测,暂无实际翻车案例)。
+7. ~~**schema_version**~~ **裁定不做**:CacheEntry.body 结构保证已注释钉死(对象 + code/message/data 三键),形漂移由 schemas.ts 解析器统一容错,消费侧单点兜底比落盘版本号更简;真需要时 body 形状可探测。
 
 ## 7. 样本来源 [实测]
 

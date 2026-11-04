@@ -14,6 +14,7 @@ export function registerScanCommands(cli: QuakeCli): void {
       portList: stringList('扫描端口,逗号分隔,如 80,443').optional(),
       description: z.string().optional().describe('任务备注'),
     }),
+    output: z.object({ task_id: z.string() }),
     examples: [
       { args: { target: 'example.com' }, options: { portList: ['80', '443'] }, description: '对目标 80/443 发起主动扫描' },
     ],
@@ -72,6 +73,7 @@ export function registerScanCommands(cli: QuakeCli): void {
 
   cli.command('scan-status', {
     description: '查询主动扫描任务状态(进度/状态时间线)',
+    output: z.object({}).passthrough(),
     args: z.object({
       taskId: z.string().describe('任务 id,来自 scan 的返回'),
     }),
@@ -107,6 +109,10 @@ export function registerScanCommands(cli: QuakeCli): void {
 
   cli.command('scan-result', {
     description: '获取主动扫描任务结果',
+    output: z.object({
+      total: z.number().nullable(),
+      results: z.array(z.unknown()),
+    }),
     args: z.object({
       taskId: z.string().describe('任务 id'),
     }),
@@ -136,13 +142,14 @@ export function registerScanCommands(cli: QuakeCli): void {
       })
       return {
         total,
-        results: json.data ?? [],
+        results: (json.data ?? []) as unknown[],
       }
     },
   })
 
   cli.command('scan-ls', {
     description: '列出本地登记的全部扫描任务(含状态与进度)',
+    output: z.object({ count: z.number(), tasks: z.array(z.unknown()) }),
     options: z.object({
       status: z.string().optional().describe('按状态过滤,如 Running/Done'),
     }),

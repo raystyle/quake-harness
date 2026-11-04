@@ -57,6 +57,7 @@ export function registerLocalCommands(cli: QuakeCli): void {
 
   cli.command('rate', {
     description: '查看/管理自适应限流节奏(ratelimit.json 状态)',
+    output: z.object({}).passthrough(),
     options: z.object({
       reset: z.boolean().default(false).describe('节奏复位到初始值(3s 间隔,清统计)'),
     }),
@@ -88,6 +89,7 @@ export function registerLocalCommands(cli: QuakeCli): void {
 
   cli.command('cache', {
     description: '查询缓存历史(query_runs 表视图)',
+    output: z.object({ runs: z.array(z.unknown()) }),
     options: z.object({
       limit: z.coerce.number().default(20).describe('返回条数'),
       method: z.string().optional().describe('按方法过滤: search/scroll/agg/cve'),

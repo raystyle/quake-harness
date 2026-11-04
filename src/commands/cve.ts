@@ -13,6 +13,7 @@ export function registerCveCommands(cli: QuakeCli): void {
       fields: stringList('只输出指定字段,逗号分隔,如 vul_name,vul_dork').optional(),
     }),
     alias: { fields: 'f' },
+    output: z.object({}).passthrough(),
     examples: [{ args: { cveId: 'CVE-2021-44228' }, description: '查 Log4Shell 详情' }],
     async run(c) {
       const token = pickToken(c)

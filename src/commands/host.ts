@@ -54,6 +54,14 @@ export function registerHostCommands(cli: QuakeCli): void {
       endTime: z.string().optional().describe('截止时间,UTC'),
     }),
     alias: { size: 'n' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      cache_hit: z.boolean(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      hosts: z.array(z.object({ raw_host: z.unknown() }).passthrough()),
+    }),
     examples: [
       { args: { query: 'ip:"1.1.1.1"' }, description: '查单 IP 全部端口服务' },
       { args: { query: 'service: http' }, options: { size: 5 }, description: '有 http 服务的主机' },
@@ -114,6 +122,14 @@ export function registerHostCommands(cli: QuakeCli): void {
       endTime: z.string().optional(),
     }),
     alias: { paginationId: 'p' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      pagination_id: z.string().nullable(),
+      hosts: z.array(z.object({ raw_host: z.unknown() }).passthrough()),
+    }),
     examples: [{ args: { query: 'country:"China" AND service: ssh' }, description: '中国 ssh 主机' }],
     async run(c) {
       const token = pickToken(c)
@@ -173,6 +189,12 @@ export function registerHostCommands(cli: QuakeCli): void {
       endTime: z.string().optional(),
     }),
     alias: { by: 'b' },
+    output: z.object({
+      cache_hit: z.boolean(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      aggregations: z.record(z.string(), z.array(z.object({ key: z.unknown(), doc_count: z.number() }))),
+    }),
     examples: [{ args: { query: 'country:"China"' }, options: { by: ['service'], size: 5 }, description: '中国主机服务分布' }],
     async run(c) {
       const token = pickToken(c)
@@ -210,6 +232,14 @@ export function registerHostCommands(cli: QuakeCli): void {
       ip: z.string().describe('IP 或 CIDR'),
     }),
     hint: '结果为本地启发式(蜜罐常见多端口全开/异常协议组合),非官方判定。需权威结论用 web 端蜜罐识别。',
+    output: z.object({
+      ip: z.string(),
+      service_count: z.number(),
+      ports: z.array(z.number().nullable()),
+      common_honeypot_port_hits: z.number(),
+      suspicious: z.boolean(),
+      verdict: z.string(),
+    }),
     examples: [{ args: { ip: '1.1.1.1' }, description: '查单 IP 服务指纹' }],
     async run(c) {
       const token = pickToken(c)

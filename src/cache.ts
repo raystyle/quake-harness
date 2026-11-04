@@ -137,7 +137,8 @@ export function cacheKey(method: string, query: string, params: unknown): CacheK
 
 export interface CacheEntry {
   fetched_at: string
-  /** 响应原文(Quake 信封 data+meta 之外的完整 body) */
+  /** 响应原文(Quake 信封 data+meta 之外的完整 body;结构保证:对象且含 code/message/data 三键,
+   *  形漂移由消费侧 schemas.ts 解析器统一容错,缓存层不做深校验以保回放零成本) */
   body: unknown
 }
 

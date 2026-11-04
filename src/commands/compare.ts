@@ -9,6 +9,7 @@ export function registerCompareCommands(cli: QuakeCli): void {
     args: z.object({
       docIds: z.array(z.string()).min(3).describe('doc id 列表,来自 search 结果的 id 字段,至少 3 个'),
     }),
+    output: z.object({}).passthrough(),
     examples: [
       {
         args: { docIds: ['8.149.67.89_2121_tcp', '47.99.142.226_2121_tcp', '147.224.236.5_2121_tcp'] },
@@ -30,7 +31,7 @@ export function registerCompareCommands(cli: QuakeCli): void {
         method: 'POST',
         body: { doc_ids: c.args.docIds },
       })) as { data?: unknown }
-      return json.data ?? {}
+      return (json.data ?? {}) as Record<string, unknown>
     },
   })
 }

@@ -38,6 +38,21 @@ export function registerDomainCommands(cli: QuakeCli): void {
       ignoreCache: z.boolean().default(false).describe('忽略缓存取最新(官方 latest_data 同款)'),
     }),
     alias: { size: 'n', fields: 't' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      cache_hit: z.boolean(),
+      archived: z.number(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      docs: z.array(z.object({
+        domain: z.string(),
+        title: z.string(),
+        ip: z.string(),
+        port: z.number().nullable(),
+        time: z.string(),
+      })),
+    }),
     examples: [
       { args: { domainName: '360.cn' }, description: '查 360.cn 全部子域资产' },
       { args: { domainName: '360.cn' }, options: { size: 50, noCdn: true, noHoneypot: true }, description: '剔 CDN/蜜罐,取 50 条' },

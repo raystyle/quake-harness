@@ -17,6 +17,21 @@ export function registerVulnScrollCommands(cli: QuakeCli): void {
       endTime: z.string().optional().describe('截止时间,UTC'),
     }),
     alias: { paginationId: 'p' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      pagination_id: z.string().nullable(),
+      docs: z.array(z.object({
+        ip: z.string(),
+        org: z.string(),
+        is_domain: z.boolean(),
+        vuln_ids: z.array(z.string()),
+        evidence_prefix: z.string(),
+        raw: z.unknown(),
+      })),
+    }),
     examples: [
       { args: { query: 'Log4j2' }, description: '搜 Log4j2 相关漏洞资产' },
       { args: { query: '"Apache Log4j2"' }, description: '引号短语防分词' },
@@ -54,7 +69,8 @@ export function registerVulnScrollCommands(cli: QuakeCli): void {
             ip: (it as { ip?: string }).ip ?? '',
             org: (it as { org?: string }).org ?? '',
             is_domain: (it as { is_domain?: boolean }).is_domain ?? false,
-            vuln_ids: v.number ?? [],
+            // vuln_ids 上游形漂移容错:实测 number 为 string[],非数组回落空
+            vuln_ids: Array.isArray(v.number) ? (v.number as string[]) : [],
             evidence_prefix: String(v.evidence_str ?? '').slice(0, 120),
             raw: it,
           }

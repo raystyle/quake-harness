@@ -30,6 +30,23 @@ export function registerServiceCommands(cli: QuakeCli): void {
       endTime: z.string().optional().describe('截止时间,同上'),
     }),
     alias: { size: 'n', include: 'f' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      cache_hit: z.boolean(),
+      archived: z.number(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      docs: z.array(z.object({
+        id: z.string(),
+        ip: z.string(),
+        port: z.number().nullable(),
+        transport: z.string(),
+        service: z.string(),
+        country: z.string(),
+        time: z.string(),
+      })),
+    }),
     examples: [
       { args: { query: 'service: http' }, options: { size: 5 }, description: '查 http 服务前 5 条' },
       { args: { query: 'domain: "example.com"' }, description: '按域名查询' },
@@ -115,6 +132,20 @@ export function registerServiceCommands(cli: QuakeCli): void {
       endTime: z.string().optional().describe('截止时间,UTC'),
     }),
     alias: { paginationId: 'p' },
+    output: z.object({
+      total: z.number().nullable(),
+      count: z.number(),
+      archived: z.number(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      pagination_id: z.string().nullable(),
+      docs: z.array(z.object({
+        id: z.string(),
+        ip: z.string(),
+        port: z.number().nullable(),
+        service: z.string(),
+      })),
+    }),
     examples: [
       { args: { query: 'service: nginx' }, description: '首页' },
       { args: { query: 'service: nginx' }, options: { paginationId: '66c5937994...' }, description: '下一页(其余参数保持不变)' },
@@ -189,6 +220,12 @@ export function registerServiceCommands(cli: QuakeCli): void {
       endTime: z.string().optional(),
     }),
     alias: { by: 'b' },
+    output: z.object({
+      cache_hit: z.boolean(),
+      cache_key: z.string(),
+      raw_path: z.string().nullable(),
+      aggregations: z.record(z.string(), z.array(z.object({ key: z.unknown(), doc_count: z.number() }))),
+    }),
     examples: [
       { args: { query: 'country: "China"' }, options: { by: ['service'], size: 10 }, description: '中国资产服务类型分布' },
     ],
