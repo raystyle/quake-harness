@@ -34,6 +34,7 @@ quake-h service-search 'app:"Nginx" AND country_cn:"中国"' --size 1
 ```
 
 护栏:`--size` 上限 500 且必须正整数(入口拦截);查询语法未闭合引号/括号本地 USAGE 拦截。域名任务用 `quake-h domain qq.com --size 5`(自动归档)。
+默认 `latest=true`(每资产只取最新一次观测,量小省钱);要看资产历史观测用 `--latest false`(同资产多行,host 族会重复计费)。结果排序两种情况都是最新采集优先。
 
 ## 4. 已查即资产:离线复用
 

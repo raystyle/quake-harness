@@ -24,7 +24,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
       rule: z.string().optional().describe('服务端 IP 列表收藏名称(rule 与 ip_list 二选一)'),
       ipList: stringList('IP 列表,逗号分隔(与 rule 二选一)').optional(),
       shortcuts: stringList('Web 过滤器 id(过滤无效请求/排除蜜罐/排除CDN),值从 web url 获取').optional(),
-      latest: z.boolean().default(true).describe('是否使用最新数据'),
+      latest: z.boolean().default(true).describe('true=每资产仅最新一次观测(默认,量小);false=全部历史观测(同资产多行,total 数倍,host 族慎用,多行重复计费)'),
       ignoreCache: z.boolean().default(false).describe('忽略缓存取最新'),
       startTime: z.string().optional().describe('起始时间,格式 2020-10-14 00:00:00,UTC'),
       endTime: z.string().optional().describe('截止时间,同上'),

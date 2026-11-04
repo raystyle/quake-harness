@@ -8,7 +8,12 @@
 
 | 常量 | 接口 | 方法 | 状态 | 说明 |
 |---|---|---|---|---|
-| QuakeSearchURL | `/api/v3/search/quake_service` | POST | 可用 | 实测 3 条扣 3 积分,doc id 形如 `ip_port_transport` |
+| QuakeSearchURL | `/api/v3/search/quake_service` | POST | 可用 | 实测 3 条扣 3 积分,doc id 三形(hex/ip_port_transport/host_port_transport) |
+
+**latest 参数语义(2026-11-04 实测,qq.com 对照)**:`latest=true` 每资产仅最新一次观测
+(默认,total=199,529);`false` 查全部历史观测(同资产多行,total=950,921,约 4.8 倍)。
+**排序与 latest 无关**:两种情况引擎默认都按采集时间倒序(最新优先)。
+host 族 latest=false 时同 IP 多行重复计费,慎用。
 | QuakeSearchScrollURL | `/api/v3/scroll/quake_service` | POST | 可用 | 同 search 参数,`pagination_id` 翻页(5 分钟有效),翻页时其余参数不可变 |
 | QuakeVulnerabilityURL | `/api/v3/scroll/quake_vulnerability` | POST | 可用 | **仅裸文本/引号短语查询**,字段语法(app:、vul_cve_id:)报 u3017;游标翻页同 scroll |
 | QuakeVulnerabilityInfoURL | `/api/v3/vulnerability/db/cve/detail/{cve}` | GET | 可用 | 免费,不扣积分;查不到返回 code 0 + 空 data |

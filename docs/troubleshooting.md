@@ -44,6 +44,7 @@
 | 查询 total=0 但资产应存在 | 敏感词屏蔽(如 360 自有域名)或语法分词 | 换等价语法验证(`domain:*.gov.cn` 对照);裸词加引号防分词 |
 | scan-result 恒空 | 常规目标无「风险项」,该端点非资产面 | 资产产出走 `service-search 'task.runtime_id:"<rid>"'`(延迟较高);见 advanced.md 扫描簿 |
 | fts 搜不到刚查的 | 只索引已归档资产;或列截断 | 确认查询走了 service-search/domain(会归档);全文深挖用 export --sql + json_extract;旧库跑 `fts --backfill` |
+| total 比预期大数倍 | `--latest false` 查了全部历史观测(同资产多行) | 默认 true 只取最新观测;要历史才显式传 false |
 | 二跑 cache_hit: false | 参数变了(cache_key 含全部请求参) | 对比两跑的 cache_key;时间窗类参数是否取整(domain 已取整到天) |
 
 ## 环境与数据
