@@ -73,6 +73,8 @@ bun src/cli.ts user    # 或二进制 quake-h user
 ```sh
 quake-h service-search 'service: http AND country: "CN"' --size 5   # 服务查询(每条 1 积分,24h 缓存)
 quake-h host-search 'ip:"1.2.3.4"'                          # 主机查询(带端口服务视图)
+quake-h domain qq.com --size 10                             # 域名资产(官方 quake_rs 同款,剔 CDN/蜜罐)
+quake-h service-agg 'app:"Nginx"' --by country              # 聚合切面(免费)
 quake-h cve CVE-2021-44228                                  # CVE 详情(免费)
 quake-h syntax cert                                         # 检索语法离线查(129 字段)
 quake-h export --sql 'SELECT count(*) FROM assets'          # 归档离线分析
@@ -85,12 +87,12 @@ quake-h doctor                                              # 环境体检(离�
 
 ```sh
 quake-h --llms          # 紧凑手册,agent 自省入口
-quake-h --mcp           # MCP stdio server
+quake-h --mcp           # MCP stdio server(23 个命令直出为常规 MCP 工具)
 quake-h mcp add         # 注册进 Claude Code / Cursor 等
 ```
 
 ## 更多
 
-命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。
+命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。漏洞测绘狩猎经验(L0-L3 分层确证、语法坑、噪声剔除)见 [docs/vuln_hunting_playbook.md](docs/vuln_hunting_playbook.md)。
 
-测试 `bun test`(46 项);CI 打 tag `v*` 触发三平台编译发布。
+测试 `bun test`(48 项);CI 打 tag `v*` 触发三平台编译发布。

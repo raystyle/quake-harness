@@ -18,7 +18,7 @@ bun src/cli.ts <cmd> --json     # 机器形输出(调试信封)
 bun src/cli.ts doctor           # 环境体检(离线;--net 免费探活)
 ```
 
-测试 `bun test`(tests/cli.test.ts,46 项):单元层(cache/archive/syntax 纯逻辑)+ 离线 CLI 集成 + API 冒烟(需 .env Key,自动节流防 q3005 限流)+ MCP stdio 链路。改命令后必跑。注意 search/scroll 每条扣 1 积分,冒烟组总成本约 10 积分。
+测试 `bun test`(tests/cli.test.ts,48 项):单元层(cache/archive/syntax 纯逻辑)+ 离线 CLI 集成 + API 冒烟(需 .env Key,自动节流防 q3005 限流)+ MCP stdio 链路。改命令后必跑。注意 service-search/domain 每条扣 1 积分,冒烟组总成本约 10 积分。
 
 凭据:项目 `.env` 的 `QuakeAPIKey`(bun 自动加载),或导出 `QUAKE_API_KEY`。
 
