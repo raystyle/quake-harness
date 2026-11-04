@@ -1,6 +1,7 @@
 import { z } from 'incur'
 import { quakeRequest, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, upsertScanTask } from '../archive'
+import { isTaskId, type TaskId } from '../types'
 
 /** 主动扫描族:scan / scan-status / scan-result / scan-ls */
 export function registerScanCommands(cli: QuakeCli): void {
@@ -33,9 +34,10 @@ export function registerScanCommands(cli: QuakeCli): void {
           ...(c.options.description ? { description: c.options.description } : {}),
         },
       })) as { data?: unknown; message?: string }
-      // 实测返回:任务 id 在 message 字段(24 位 hex),data 为空对象
+      // 实测返回:任务 id 在 message 字段(24 位 hex),data 为空对象;守卫窄化进 TaskId 域
       const fromData = typeof json.data === 'string' ? json.data : String((json.data as Record<string, unknown>)?.id ?? '')
-      const taskId = fromData || (json.message && /^[0-9a-f]{24}$/.test(json.message) ? json.message : '')
+      const rawTaskId = fromData || (json.message && isTaskId(json.message) ? json.message : '')
+      const taskId: TaskId | '' = rawTaskId && isTaskId(rawTaskId) ? rawTaskId : ''
       // 长时任务登记进 runs 库:跨会话可查,状态由 scan-status 刷新
       if (taskId) {
         upsertScanTask(getDb(), {
@@ -63,6 +65,14 @@ export function registerScanCommands(cli: QuakeCli): void {
     }),
     async run(c) {
       const token = pickToken(c)
+      // API 边界守卫:非法任务 id 快速失败,不落到服务端
+      if (!isTaskId(c.args.taskId)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'taskId 须为 24 位 hex(来自 scan 返回的 task_id)',
+          retryable: false,
+        })
+      }
       const json = (await quakeRequest(`/api/v3/fast_scan/${c.args.taskId}`, token)) as {
         data?: Record<string, unknown>
       }
@@ -94,6 +104,13 @@ export function registerScanCommands(cli: QuakeCli): void {
     }),
     async run(c) {
       const token = pickToken(c)
+      if (!isTaskId(c.args.taskId)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'taskId 须为 24 位 hex(来自 scan 返回的 task_id)',
+          retryable: false,
+        })
+      }
       const json = (await quakeRequest(
         `/api/v3/fast_scan/result/${c.args.taskId}?start=${c.options.start}&size=${c.options.size}`,
         token,

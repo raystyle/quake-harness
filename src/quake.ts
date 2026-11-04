@@ -2,6 +2,7 @@ import { Cli, Errors, z } from 'incur'
 import { cacheKey, readCache, writeRaw, TTL_HOURS, readUserEnvFallback } from './cache'
 import { getDb, recordRun, type AssetRow } from './archive'
 import { acquire, reportOk, reportLimited, LIMITS } from './ratelimit'
+import { isDocId, type DocId, type RawMethod } from './types'
 
 const { IncurError } = Errors
 
@@ -81,7 +82,7 @@ async function quakeRequest(
  * noCache 参数对应各命令的 --ignore-cache / scroll 翻页语义。
  */
 async function cachedQuake(
-  method: string,
+  method: RawMethod,
   query: string,
   params: Record<string, unknown>,
   token: string,
@@ -146,14 +147,14 @@ async function cachedQuake(
   return { json, cacheHit: false, rawPath, cacheKeyStr: key }
 }
 
-/** 服务文档 -> 归档资产行 */
+/** 服务文档 -> 归档资产行;doc_id 守卫窄化(非 24 位 hex 的异常文档落空串由 UPSERT 侧吞并) */
 function toAssetRow(it: unknown): AssetRow {
   const d = it as {
     id?: string; ip?: string; port?: number; transport?: string; hostname?: string;
     time?: string; service?: { name?: string }; location?: { country_cn?: string }
   }
   return {
-    doc_id: d.id ?? '',
+    doc_id: (isDocId(d.id ?? '') ? d.id : '') as DocId,
     ip: d.ip ?? '',
     port: d.port ?? null,
     transport: d.transport ?? '',

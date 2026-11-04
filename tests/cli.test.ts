@@ -110,11 +110,11 @@ describe('archive 单元', async () => {
   test('UPSERT 同 doc_id 更新 last_seen,按数据时间落月库', () => {
     // 数据时间 2025-06 -> 月库 2025-06;先清保证计数独占
     const m = dataMonth('2025-06-15T00:00:00Z')
-    expect(m).toBe('2025-06')
+    expect(m as string).toBe('2025-06')
     getMonthDb(m).exec('DELETE FROM assets')
     const db = getDb()
     const row = {
-      doc_id: '1.2.3.4_80_tcp', ip: '1.2.3.4', port: 80, transport: 'tcp',
+      doc_id: '1.2.3.4_80_tcp' as import('../src/types').DocId, ip: '1.2.3.4', port: 80, transport: 'tcp',
       service_name: 'http', hostname: '', country: '中国', time: '2025-06-15T00:00:00Z', raw_json: '{"v":1}',
     }
     expect(upsertAssets(db, [row])).toBe(1)
@@ -127,29 +127,29 @@ describe('archive 单元', async () => {
     expect(Date.parse(r.last_seen)).toBeGreaterThanOrEqual(Date.parse(r.first_seen))
     const n: any = mdb.query('SELECT count(*) AS n FROM assets').get()
     expect(n.n).toBe(1)
-    expect(listMonths()).toContain('2025-06')
+    expect(listMonths() as string[]).toContain('2025-06')
   })
 
   test('数据时间缺失时回落观测时间并打标', () => {
     const db = getDb()
     upsertAssets(db, [{
-      doc_id: '5.6.7.8_80_tcp', ip: '5.6.7.8', port: 80, transport: 'tcp',
+      doc_id: '5.6.7.8_80_tcp' as import('../src/types').DocId, ip: '5.6.7.8', port: 80, transport: 'tcp',
       service_name: '', hostname: '', country: '', time: '', raw_json: '{}',
     }])
-    const nowM = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+    const nowM = dataMonth('')
     const r: any = getMonthDb(nowM).query('SELECT data_time, data_time_is_observed FROM assets WHERE doc_id = ?').get('5.6.7.8_80_tcp')
     expect(r).toBeTruthy()
     expect(r.data_time_is_observed).toBe(1)
   })
 
   test('跨月联邦:UNION ALL 子查询聚合', () => {
-    getMonthDb('2025-06').exec('DELETE FROM assets')
-    getMonthDb('2025-01').exec('DELETE FROM assets')
+    getMonthDb('2025-06' as import('../src/types').Month).exec('DELETE FROM assets')
+    getMonthDb('2025-01' as import('../src/types').Month).exec('DELETE FROM assets')
     const db = getDb()
     upsertAssets(db, [{
-      doc_id: `a_1_tcp`, ip: '1.1.1.1', port: 1, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-01-01T00:00:00Z', raw_json: '{}',
+      doc_id: 'a_1_tcp' as import('../src/types').DocId, ip: '1.1.1.1', port: 1, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-01-01T00:00:00Z', raw_json: '{}',
     }, {
-      doc_id: `b_2_tcp`, ip: '2.2.2.2', port: 2, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}',
+      doc_id: 'b_2_tcp' as import('../src/types').DocId, ip: '2.2.2.2', port: 2, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}',
     }])
     const fed = openFederatedDb()
     const n: any = fed.db.query(`SELECT count(*) AS n, count(DISTINCT month) AS months FROM ${fed.assetsRef}`).get()
@@ -227,8 +227,8 @@ describe('CLI 离线命令', () => {
     // 先种两行资产(隔离 HOME 内)
     const { getDb, upsertAssets } = await import('../src/archive')
     upsertAssets(getDb(), [
-      { doc_id: '9.9.9.9_80_tcp', ip: '9.9.9.9', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '中国', time: 't', raw_json: '{}' },
-      { doc_id: '8.8.8.8_443_tcp', ip: '8.8.8.8', port: 443, transport: 'tcp', service_name: 'https', hostname: '', country: '美国', time: 't', raw_json: '{}' },
+      { doc_id: '9.9.9.9_80_tcp' as import('../src/types').DocId, ip: '9.9.9.9', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '中国', time: 't', raw_json: '{}' },
+      { doc_id: '8.8.8.8_443_tcp' as import('../src/types').DocId, ip: '8.8.8.8', port: 443, transport: 'tcp', service_name: 'https', hostname: '', country: '美国', time: 't', raw_json: '{}' },
     ])
     const out = join(home, 't.parquet')
     const { out: r, exit } = await run(['export', '--sql', 'SELECT ip, port, country FROM assets WHERE ip LIKE "9.9.%" OR ip LIKE "8.8.%"', '--as', 'parquet', '--out', out])

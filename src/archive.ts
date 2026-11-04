@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite'
 import { mkdirSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { quakeHHome, quakeHCache } from './cache'
+import type { DocId, TaskId, Month } from './types'
 
 /**
  * B 层归档:按数据时间(年月)分库 + 三时间语义分离。
@@ -14,7 +15,7 @@ import { quakeHHome, quakeHCache } from './cache'
  */
 
 export interface AssetRow {
-  doc_id: string
+  doc_id: DocId
   ip: string
   port: number | null
   transport: string
@@ -27,10 +28,10 @@ export interface AssetRow {
 }
 
 /** 数据时间的年月分桶(2026-11-03T.. -> 202611);无时间归 observation 兜底桶 */
-export function dataMonth(iso: string, fallbackNow = new Date()): string {
+export function dataMonth(iso: string, fallbackNow = new Date()): Month {
   const t = iso ? Date.parse(iso) : NaN
   const d = Number.isNaN(t) ? fallbackNow : new Date(t)
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}` as Month
 }
 
 /** runs 库(查询行为与聚合,不分月) */
@@ -85,7 +86,7 @@ function openRunsDb(): Database {
 
 /** scan 任务登记/刷新 */
 export interface ScanTaskRecord {
-  taskId: string
+  taskId: TaskId
   target: string
   portList: string
   status: string
@@ -121,7 +122,7 @@ export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
 /** 月库缓存:YYYYMM.sqlite */
 const monthDbs = new Map<string, Database>()
 
-export function getMonthDb(month: string): Database {
+export function getMonthDb(month: Month): Database {
   let db = monthDbs.get(month)
   if (!db) {
     const p = join(quakeHHome(), `${month}.sqlite`)
@@ -152,13 +153,13 @@ export function getMonthDb(month: string): Database {
 }
 
 /** 已存在的月库列表(升序) */
-export function listMonths(): string[] {
+export function listMonths(): Month[] {
   const home = quakeHHome()
   if (!existsSync(home)) return []
   const { readdirSync } = require('node:fs') as typeof import('node:fs')
   return readdirSync(home)
     .filter((f) => /^\d{4}-\d{2}\.sqlite$/.test(f))
-    .map((f) => f.slice(0, -'.sqlite'.length))
+    .map((f) => f.slice(0, -'.sqlite'.length) as Month)
     .sort()
 }
 
@@ -181,7 +182,7 @@ export function openFederatedDb(): { db: Database; assetsRef: string; months: st
 }
 
 export interface RunRecord {
-  method: string
+  method: string  // RawMethod;入 DB 列为 TEXT,历史行含未知键,收裸 string
   query: string
   cacheKey: string
   total?: number | null
@@ -209,7 +210,7 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
   if (rows.length === 0) return 0
   const now = new Date().toISOString()
   // 按数据年月分组,各组写自己的月库
-  const byMonth = new Map<string, AssetRow[]>()
+  const byMonth = new Map<Month, AssetRow[]>()
   for (const a of rows) {
     // 数据时间为空:回落观测时刻并打标(data_time_is_observed=1)
     const hasDataTime = Boolean(a.time)
