@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.1(2026-11-04)
+
+### 修复
+
+- **domain 缓存失效**:近一年时间窗曾精确到秒,cache_key 每次都变,同参数重复查询永远不命中缓存(每次实扣积分);取整到天后同天同参二跑命中(`cache_hit: true` 实证),回归测试入档
+- **冒烟测试随机超时**:冒烟组子进程超时 30s -> 90s(限流静默期叠加下单条命令可超 60s,30s 下 service-scroll/domain/host-honeypot 轮流随机失败)
+
+### 文档
+
+按缺口盘点补齐九篇/节:QUICKSTART(五分钟上手)、troubleshooting(症状->code->下一步全表)、CONTRIBUTING(加命令七步清单 + 发版 runbook)、export 食谱(SQL/Parquet 任务篇)、数据文件运维附录与敏感性边界(并入 data_contract)、icon 扩簇任务节(playbook)、fields vs syntax 对照(advanced)、fts 独立文档(索引结构/检索语义/跨月机制)
+
+
 ## v0.2.0(2026-11-04)
 
 ### 新命令
