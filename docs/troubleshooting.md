@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `调用API过于频繁` | q3005 | 撞服务端节流 | 稍等即可:自适应限流会自动退避(q3005 后间隔翻倍 + 静默期);`quake-h rate` 看当前节奏 |
 | `自适应限流等待超限` | RATE_LIMITED | 静默期太长,等待超过一轮 | 稍后再试;急用可 `quake-h rate --reset` 复位(代价是失去学习到的节奏) |
-| `积分不足` 类 message | 积分类错误 | 长效积分池耗尽 | `quake-h user` 看 persistent_credit;减少批量拉取,聚合(免费)代替 |
+| `积分不足` 类 message | 积分类错误 | 长效积分池耗尽 | `quake-h user` 看 persistent_credit;减少批量拉取,小 size 聚合代替(真免费:cve/icon/fields/syntax) |
 
 ## 权限(u/q 前缀服务端码)
 

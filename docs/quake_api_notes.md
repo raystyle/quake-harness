@@ -13,11 +13,11 @@
 **latest 参数语义(2026-11-04 实测,qq.com 对照)**:`latest=true` 每资产仅最新一次观测
 (默认,total=199,529);`false` 查全部历史观测(同资产多行,total=950,921,约 4.8 倍)。
 **排序与 latest 无关**:两种情况引擎默认都按采集时间倒序(最新优先)。
-host 族 latest=false 时同 IP 多行重复计费,慎用。
+host 族 latest=false 时同 IP 多行重复计费,慎用。另:host 接口(search/quake_host)实测无 latest 参数,引擎默认即最新观测;service 族才有该开关。
 | QuakeSearchScrollURL | `/api/v3/scroll/quake_service` | POST | 可用 | 同 search 参数,`pagination_id` 翻页(5 分钟有效),翻页时其余参数不可变 |
 | QuakeVulnerabilityURL | `/api/v3/scroll/quake_vulnerability` | POST | 可用 | **仅裸文本/引号短语查询**,字段语法(app:、vul_cve_id:)报 u3017;游标翻页同 scroll |
 | QuakeVulnerabilityInfoURL | `/api/v3/vulnerability/db/cve/detail/{cve}` | GET | 可用 | 免费,不扣积分;查不到返回 code 0 + 空 data |
-| QuakeAggregationURL | `/api/v3/aggregation/quake_service` | POST | 可用 | `aggregation_list` 最多 2 个字段 |
+| QuakeAggregationURL | `/api/v3/aggregation/quake_service` | POST | 可用 | `aggregation_list` 最多 2 个字段;**按 size 计费,1 桶 1 长效积分**(2026-11-04 实测 size=1/3/5 分别扣 1/3/5;host-agg 同价);真免费的是 cve/icon/fields/syntax |
 | QuakeSubmitActiveScanURL | `/api/v3/fast_scan` | POST | 可用 | 提交形三选一:query(检索语法)/ ip_list(数组)/ domain_list(数组);port_list 必填(缺报 u3009);建议 ip 与域名分开下两次(用户实践);响应 task_id 在 message |
 | QuakeGetActiveScanInfoURL | `/api/v3/fast_scan/{task_id}` | GET | 可用 | 详情:id/runtime_id/progress/total/send/success/failed/status_records 时间线/end_time;状态机 Calculating -> Running -> Sent -> Finished(2026-11-04 九任务实测);顶层 status 翻牌滞后,完成判定看 Finished;API 不回显提交参数(target 仅存本地簿) |
 | QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{runtime_id}` | GET | 可用 | 路径参数是 **runtime_id**(详情端点 data.runtime_id,与 task_id 相邻减一);返回**扫描器风险项**,常规目标(含已收录资产、有洞资产)实测恒空;`?start=&size=` 分页。资产采集结果不走此端点 |

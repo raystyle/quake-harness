@@ -27,9 +27,9 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 | 一次性攻击路径搜不到 | 战役落壳路径(http_path)多为一次性,爬虫难命中;后果面靠页面指纹家族,不靠 path [实测] |
 | 泛解析站群污染版本桶 | 无补丁号的大版本桶(如 `8.5` 2550 万)可能整个是某 ASN 站群污染;先按 title/country/ASN 切面验明桶成分再下结论 [实测] |
 
-## 3. 工作流:先免费后付费
+## 3. 工作流:低成本定形,付费抽样
 
-1. **免费定形**:`syntax` 查字段可用性 -> `service-agg` 多切面(country/asn/org/port/title/app_version)摸清桶成分与量级,全部零积分
+1. **低成本定形**:`syntax` 查字段可用性(免费)-> `service-agg` 小 size 切面(country/asn/org/port/title/app_version)摸桶;聚合按 size 计费(1 桶 1 长效积分),size=3 起步验桶,桶成分验明才放大
 2. **付费抽样**:桶验明无污染后才 `service-search` 抽 10 条看活体与归档(每条 1 积分)
 3. **归档复用**:抽样自动入库,后续用 `export --sql` 离线分析或 `fts` 全文检索(见 [advanced.md](advanced.md) FTS 节),不重复花钱
 
@@ -43,7 +43,7 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 ## 5. 协作分工模式
 
 - **情报工位**(search-harness 类):出 CVE 矩阵/固定版表/补丁判据/公开 scanner 语料,并迭代收紧语法
-- **测绘工位**(本仓):验证语法可用性、跑免费切面、付费抽样、回执实测数字
+- **测绘工位**(本仓):验证语法可用性、跑小成本切面、付费抽样、回执实测数字
 - 语法以测绘侧实测为准回写修正(对方给的通用测绘语法与引擎实际字段常有出入)
 - 双方明示边界:利用链与武器化不进协作
 
@@ -52,6 +52,6 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 ```sh
 bun src/cli.ts syntax <keyword>              # 字段可用性,免费
 bun src/cli.ts cve <cve-id>                  # CVE 详情/固定版,免费
-bun src/cli.ts service-agg '<query>' --by <field>    # 切面摸桶,免费
+bun src/cli.ts service-agg '<query>' --by <field>    # 切面摸桶,按桶计费(size 小步)
 bun src/cli.ts service-search '<query>' --size 10    # 抽样归档,每条 1 积分
 ```

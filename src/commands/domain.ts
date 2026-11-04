@@ -131,7 +131,7 @@ export function registerDomainCommands(cli: QuakeCli): void {
           description: '下一步:',
           commands: [
             { command: 'service-scroll', args: { query }, description: '深度翻页拉取更多' },
-            { command: 'service-agg', args: { query }, description: '聚合统计分布(免费)' },
+            { command: 'service-agg', args: { query }, description: '聚合统计分布(按桶计费)' },
             { command: 'fts', args: { match: `host:"${domain}"` }, description: '归档全文检索该域名' },
           ],
         },

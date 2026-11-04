@@ -214,8 +214,10 @@ const cli = Cli.create('quake-h', {
   }),
   sync: {
     suggestions: [
-      'quake-h service-search "service: http" --size 5',
-      'quake-h user',
+      'quake-h doctor',
+      'quake-h service-agg "app:\"Nginx\"" --by country_cn --size 5',
+      'quake-h service-search "service: http" --size 1',
+      'quake-h fts title:login',
       'quake-h cve CVE-2021-44228',
     ],
   },

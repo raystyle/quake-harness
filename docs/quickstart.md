@@ -19,12 +19,12 @@ quake-h syntax cert     # 离线查检索语法字段(129 字段,不耗积分)
 quake-h user            # 账户与积分(免费)
 ```
 
-## 3. 第一条查询:先免费聚合,再小步付费
+## 3. 第一条查询:低成本摸底,再小步付费
 
-**先免费摸底**(聚合不扣积分,直到桶成分验明前别付费):
+**先低成本摸底**(聚合按 size 计费,1 桶 1 长效积分;size 小步起步验桶,别一上来付费拉文档):
 
 ```sh
-quake-h service-agg 'app:"Nginx" AND country_cn:"中国"' --by service --size 5
+quake-h service-agg 'app:"Nginx" AND country_cn:"中国"' --by service --size 3
 ```
 
 **付费首查,最小步**(service-search 每条扣 1 长效积分,`--size 1` 起步):

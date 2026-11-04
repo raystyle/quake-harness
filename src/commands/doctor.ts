@@ -168,17 +168,17 @@ export function registerDoctorCommands(cli: QuakeCli): void {
           const t0 = Date.now()
           try {
             const json = (await quakeRequest('/api/v3/user/info', value)) as {
-              data?: { credit?: number; month_remaining_credit?: number }
+              data?: { credit?: number; month_remaining_credit?: number; persistent_credit?: number }
             }
             const latency = Date.now() - t0
             netProbe = {
               ok: true, host: QUAKE_HOST, latency_ms: latency,
-              credit: json.data?.credit ?? null,
+              credit: json.data?.persistent_credit ?? json.data?.credit ?? null,
               month_remaining_credit: json.data?.month_remaining_credit ?? null,
             }
             checks.push({
               name: 'net', status: 'ok',
-              detail: `探活成功 ${latency}ms,积分余量 ${json.data?.month_remaining_credit ?? '未知'}`,
+              detail: `探活成功 ${latency}ms,长效积分 ${json.data?.persistent_credit ?? '未知'}`,
             })
           } catch (err) {
             netProbe = { ok: false, host: QUAKE_HOST, latency_ms: null, credit: null, month_remaining_credit: null }

@@ -28,7 +28,17 @@ export function registerReferenceCommands(cli: QuakeCli): void {
       )
       const typed = json as { data?: string[] }
       const fields = typed.data ?? []
-      return { count: fields.length, cache_hit: cacheHit, fields }
+      return {
+        count: fields.length,
+        cache_hit: cacheHit,
+        fields,
+        cta: {
+          description: '下一步:',
+          commands: [
+            { command: 'service-agg', args: { query: 'service: http' }, options: { by: [c.args.dataset.endsWith('-agg') ? c.args.dataset.split('-')[0] : 'service'] }, description: '用这些字段聚合(按桶计费)' },
+          ],
+        },
+      }
     },
   })
 
@@ -91,6 +101,12 @@ export function registerReferenceCommands(cli: QuakeCli): void {
           // favicon base64 太长,默认裁剪;display 全量走 --filter-output data
           data_prefix: (i.data ?? '').slice(0, 64),
         })),
+        cta: {
+          description: '下一步:',
+          commands: items[0]
+            ? [{ command: 'service-search', args: { query: `favicon:"${items[0].key}"` }, options: { size: 3 }, description: '按同 favicon 圈资产扩簇' }]
+            : [],
+        },
       }
     },
   })

@@ -48,10 +48,10 @@ quake-h fts 'body:phpinfo' --month 2026-11   # 定向单月库
 2. 离线挖特征        fts 'title:b374k' / fts 'body:FilesMan' / fts 'server:"Apache"' 
 3. 深挖单条          export --sql "SELECT ... FROM assets WHERE ip = '...'"
                      (raw_json 全文在此,FTS 截断的尾部也能查)
-4. 回到引擎扩簇      service-search / icon(免费聚合验证量级)
+4. 回到引擎扩簇      service-search / icon(icon 免费;聚合按桶计费)
 ```
 
-与狩猎 playbook 的衔接:先免费聚合定桶,付费抽样即归档,归档即可 fts;后续同特征检索不再花积分。
+与狩猎 playbook 的衔接:先小成本聚合定桶(size 起步小),付费抽样即归档,归档即可 fts;后续同特征检索不再花积分。
 
 ## 5. 边界与已知限制
 

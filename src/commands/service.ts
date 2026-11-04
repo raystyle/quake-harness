@@ -103,6 +103,10 @@ export function registerServiceCommands(cli: QuakeCli): void {
         archived,
         cache_key: cacheKeyStr,
         raw_path: rawPath ?? null,
+        // latest 语义注记:显式 false 是全历史观测(同资产多行),agent 据此判断 total 口径
+        latest_note: o.latest
+          ? 'total 为每资产最新一次观测的去重量(latest=true 默认)'
+          : 'total 为全部历史观测,同资产多行(latest=false;按端点去重统计另行处理)',
         docs: items.map((it) => {
           const d = it as { id?: string; ip?: string; port?: number; transport?: string; time?: string; service?: { name?: string }; location?: { country_cn?: string } }
           return {
@@ -120,6 +124,9 @@ export function registerServiceCommands(cli: QuakeCli): void {
           commands: [
             { command: 'service-scroll', args: { query: c.args.query }, description: '深度翻页拉取更多' },
             { command: 'service-agg', args: { query: c.args.query }, description: '聚合统计分布' },
+            ...(o.latest
+              ? []
+              : [{ command: 'service-search', args: { query: c.args.query }, options: { latest: true, size: 1 }, description: '对比最新观测口径的 total' }]),
           ],
         },
       }
@@ -222,7 +229,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
   })
 
   cli.command('service-agg', {
-    description: '服务数据聚合统计(最多同时聚合 2 个字段)',
+    description: '服务数据聚合统计(最多 2 字段;按 size 计费,1 桶 1 长效积分)',
     args: z.object({
       query: z.string().describe('Quake 检索语法'),
     }),

@@ -31,7 +31,15 @@ export function registerCompareCommands(cli: QuakeCli): void {
         method: 'POST',
         body: { doc_ids: c.args.docIds },
       })) as { data?: unknown }
-      return (json.data ?? {}) as Record<string, unknown>
+      return {
+        ...(json.data ?? {}) as Record<string, unknown>,
+        cta: {
+          description: '下一步:',
+          commands: [
+            { command: 'service-search', args: { query: 'service: http' }, options: { size: 3 }, description: '取更多 doc id 扩对比集' },
+          ],
+        },
+      }
     },
   })
 }
