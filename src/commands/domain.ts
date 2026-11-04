@@ -31,13 +31,12 @@ export function registerDomainCommands(cli: QuakeCli): void {
     options: z.object({
       start: z.coerce.number().default(0).describe('结果下标偏移'),
       size: z.coerce.number().default(10).describe('返回条数,官方上限 100'),
-      fields: stringList('展示字段,逗号分隔:host,ip,port,title(官方 --type 同款)').optional(),
       noCdn: z.boolean().default(false).describe('剔除 CDN 数据'),
       noHoneypot: z.boolean().default(false).describe('剔除蜜罐数据'),
       filterRequest: z.boolean().default(false).describe('剔除无效请求(400/401/403 等)'),
       ignoreCache: z.boolean().default(false).describe('忽略缓存取最新(官方 latest_data 同款)'),
     }),
-    alias: { size: 'n', fields: 't' },
+    alias: { size: 'n' },
     output: z.object({
       total: z.number().nullable(),
       count: z.number(),

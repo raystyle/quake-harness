@@ -1,5 +1,7 @@
 # 数据契约 Review:原始结构与本仓结构对照
 
+> 层级术语:C0-C4 指数据处理的五个切面(本文);L0-L3 保留给狩猎文档的确证等级(vuln_hunting_playbook.md),两套不同义。
+
 > 2026-11-04 · 基于 raw 落盘真实样本(search/host_search/agg/vuln_scroll/cve/icon 各取最新落盘)+ 源码类型定义逐层核对
 > 标注约定:[实测] = 落盘样本核对;[代码] = 源码事实;[推断] = 由前两者推出
 
@@ -14,7 +16,7 @@ code/message/data/meta -> {fetched_at, body}  ->  docs[] 紧凑视图    ->  ass
 
 关键性质:**单向有损**。每一层都是上一层的投影;唯一的无损保全点是 A 层 raw 原文与 B 层 `raw_json` 列。
 
-## 1. L0:Quake 原始响应契约 [实测]
+## 1. C0:Quake 原始响应契约 [实测]
 
 ### 1.1 统一信封
 
@@ -141,7 +143,7 @@ interface QuakeVulnDoc {
 - agg / host_agg:data 为 `{ [facet]: Array<{key, doc_count> } }`,facet 键即 aggregation_list 字段名
 - icon:data 为 `Array<{key, doc_count, data}>`,data 为 favicon 的 base64
 
-## 2. L1:A 层缓存契约 [代码]
+## 2. C1:A 层缓存契约 [代码]
 
 ```ts
 interface CacheEntry {
@@ -150,15 +152,18 @@ interface CacheEntry {
 }
 ```
 
-落盘形:`raw/<method>/<YYYY-MM-DD>/<md5(key)>.json`;method 为内部键(search/scroll/agg/host_search/vuln_scroll/cve/icon/fields_*),与命令名解耦(service-search 改名后缓存不作废即此设计)。[代码]
+落盘形:`raw/<method>/<YYYY-MM-DD>/<sha256 截断 32hex(key)>.json`;method 为内部键(search/scroll/agg/host_search/vuln_scroll/cve/icon/fields_*),与命令名解耦(service-search 改名后缓存不作废即此设计)。[代码]
 
 TTL 表(小时):search=24, scroll=0(不回放), host_search=24, host_scroll=0, agg/host_agg=168, cve=720, icon=168。[代码]
 
-**契约状态**:`body: unknown` 即「信封内不校验」——回放时直接当新鲜响应用。风险:上游信封变更(字段改名/移位)不会被缓存层发现,只会以命令层 `undefined` 静默降级。[推断]
+**契约状态(2026-11-04 更新)**:缓存层 `body: unknown` 仍不校验(回放零成本),
+但命令消费已统一经 src/schemas.ts 解析器(parseEnvelope/parseListBody/parseAggBody),
+信封/列表形漂移在解析器容错为空态,不再以 `undefined` 静默穿透各命令。[代码]
+历史状态(2026-11-03 前):无解析器,`as` 断言直透,漂移静默降级。
 
-## 3. L2:命令投影契约
+## 3. C2:命令投影契约
 
-### 3.1 各命令输出形(代码中的实际返回形) [代码]
+### C2.1 各命令输出形(代码中的实际返回形) [代码]
 
 | 命令 | 投影 | raw 全量保留? |
 |---|---|---|
@@ -172,15 +177,17 @@ TTL 表(小时):search=24, scroll=0(不回放), host_search=24, host_scroll=0, a
 | cve | data 原文透传(--fields 可选列) | raw 落盘 |
 | compare/scan 族/fields/icon | data 原文或近透传 | icon raw 落盘 |
 
-### 3.2 hostname 双态坑 [实测+代码]
+### C2.2 hostname 双态坑 [实测+代码]
 
 服务文档 `hostname: string`,主机文档 `hostname: string[]`。`toAssetRow` 与 `hostRow` 均以 `Array.isArray(d.hostname)` 分支兼容。若上游将服务文档 hostname 改为数组,现有分支已兼容;反向(数组改标量)会走 join 之前先 Array.isArray=false 取原值,同样安全。[推断]
 
-### 3.3 zod output 契约覆盖现状 [代码]
+### C2.3 zod output 契约覆盖现状 [代码]
 
-**仅 user 与 doctor 两命令声明了 output schema**;其余 21 个命令返回裸对象,输出形状只由 TS 推断与人工约定保证,`--json` 面无运行时校验。这是当前最大的契约空档:[推断] 输出字段改名/漏字段只会在消费方发现。
+截至 2026-11-04:24 命令中 22 个已声明 output schema(user/查询族/scan 族/参考族/管理族);
+syntax 与 export 未声明(离线命令,输出形由代码与测试锁定)。历史状态(2026-11-03 前):
+仅 user 与 doctor 声明,其余裸对象靠 TS 推断。
 
-## 4. L3:B 层归档契约 [代码]
+## 4. C3:B 层归档契约 [代码]
 
 ```ts
 interface AssetRow {                    // 服务文档 -> 月库行
@@ -214,7 +221,7 @@ UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)
 | `first_seen` | 本地首次观测(查询到)时刻 | 本地时钟 | UPSERT 永不改 |
 | `last_seen` | 本地最近观测时刻 | 本地时钟 | 每次重查 UPSERT 推进 |
 
-实数据验证:doc `116.228.18.70_4443_tcp` 的 data_time=2025-06-30(Quake 半年前采集)、first_seen=last_seen=2026-11-03(昨天首查)—— 两个时间轴相差 4 个月,语义分离在真实数据上成立。文档缺 time 的回落行 data_time_source 会标 `observed-fallback`,分析时可 `WHERE data_time_is_observed=0` 剔除降级数据。[实测]
+实数据验证:doc `116.228.18.70_4443_tcp` 的 data_time=2025-06-30(Quake 半年前采集)、first_seen=last_seen=2026-11-03(昨天首查): 两个时间轴相差 4 个月,语义分离在真实数据上成立。文档缺 time 的回落行 data_time_source 会标 `observed-fallback`,分析时可 `WHERE data_time_is_observed=0` 剔除降级数据。[实测]
 
 其余三表(恒在 runs 库,不分月):
 - `query_runs(ts, method, query, cache_key, total, count, pagination_id, raw_path)`:查询行为流水
@@ -228,36 +235,38 @@ UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)
 | 服务文档 | `doc_id`(PK) | 同一端点多 vhost 即多行:81.70.185.165:8144 四行(s2.bytebytego.cn/allyworld.cn/lxgj/lingxiang 四个 vhost) |
 | 资产端点 | `(ip, port, transport)` 业务复合键 | 全库 45 文档行 vs 38 端点:按 doc_id 数资产高估 18% |
 | 域名资产 | `(domain, ip, port)`(domain 命令业务视角;经 doc_id 归档进 assets) | 实测 qq.com 查询即归档,`fts 'host:"qq.com"'` 立即可检 |
-| 主机 | `ip`(host 文档 id 即 ip) | — |
-| 扫描任务 | `task_id`(PK) | — |
+| 主机 | `ip`(host 文档 id 即 ip) | : |
+| 扫描任务 | `task_id`(PK) | : |
 
-结论:**doc_id 是文档去重键,不是资产数**。`export --sql` 统计资产量必须 `COUNT(DISTINCT ip || ':' || port)`,数文档行数只是「观测到的文档面」。类型层:`AssetKey` interface 表达端点身份三件套,`DocId` 注释明示非端点键。[实测+代码]
+结论:**doc_id 是文档去重键,不是资产数**。`export --sql` 统计资产量必须按端点三件套去重:
+`SELECT COUNT(*) FROM (SELECT DISTINCT ip, port, transport FROM assets)`
+(只 DISTINCT ip+port 会把同端点的 TCP/UDP 两行误合并)。数文档行数只是「观测到的文档面」。类型层:`AssetKey` interface 表达端点身份三件套,`DocId` 注释明示非端点键。[实测+代码]
 
 **domain 命令业务契约**(三件齐):
-- 输入契约:`DomainName` 品牌类型 + `isDomainName` 守卫(纯域名形校验)。该守卫同时是 **Quake 语法注入防线** —— domain 以 `domain:*.<输入>` 直拼查询,`evil.cn OR service:telnet` 类输入会改变查询语义,入口即拦(USAGE)。[代码+实测]
+- 输入契约:`DomainName` 品牌类型 + `isDomainName` 守卫(纯域名形校验)。该守卫同时是 **Quake 语法注入防线** : domain 以 `domain:*.<输入>` 直拼查询,`evil.cn OR service:telnet` 类输入会改变查询语义,入口即拦(USAGE)。[代码+实测]
 - 数据契约:与 service-search 同链路,命中即归档(`archived` 字段 + assets 月库 + FTS 同步);缓存命中不重复扣行。[代码]
 - 输出契约:docs[] {domain,title,ip,port,time} + archived + CTA(host 短语 fts 检索)。[代码]
 
 **投影损失清单**(assets 可 SQL 直查列 vs raw_json):丢 asn/org/province/city/isp/scene/title/body/response 等;`raw_json` 全在,`export --sql` 可 `json_extract(raw_json, '$.service.http.title')` 补救。[实测+代码]
 
-## 5. L4:导出面契约 [代码]
+## 5. C4:导出面契约 [代码]
 
-export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `month` 列);parquet 流式导出固定列集 = assets 全列;CSV 按 SQL 结果列。跨库层每行带 `month` 来源标注。
+export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `month` 列)。parquet 默认投影列为 assets 的结构列(不含 raw_json 大字段);CSV/json 按 SQL 结果列。注意:「只读」仅是 SELECT 前缀检查,非数据库级沙箱,勿以此当安全边界。parquet 流式写入的峰值内存与总行数解耦,但还受单行大小(尤其含 raw_json 的查询)与写入器缓冲影响,不只由 rowGroupSize 决定。跨库层每行带 `month` 来源标注。
 
 ## 6. 契约强度总评与建议
 
 | 层 | 契约形式 | 运行时校验 | 现状评价 |
 |---|---|---|---|
-| L0 原始响应 | 无(消费侧 `as` 断言) | 无 | 上游漂移静默降级,靠 raw 落盘事后可查 |
-| L1 缓存 | CacheEntry 两键 | 无(body unknown) | 回放信任原文,fetched_at 是唯一元数据 |
-| L2 命令输出 | TS 推断;仅 user/doctor 有 zod | 2/23 | **最大空档**:输出面无守卫 |
-| L3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
-| L4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
+| C0 原始响应 | 无(消费侧 `as` 断言) | 无 | 上游漂移静默降级,靠 raw 落盘事后可查 |
+| C1 缓存 | CacheEntry 两键 | 无(body unknown) | 回放信任原文,fetched_at 是唯一元数据 |
+| C2 命令输出 | TS 推断;仅 user/doctor 有 zod | 2/23 | **最大空档**:输出面无守卫 |
+| C3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
+| C4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
 
 建议(全部落地,收档):
 
 1. ~~**标识符品牌类型化**~~ **已落地**(src/types.ts):`DocId/TaskId/CacheKey/Month/DomainName/CveId/FaviconHash/IpCidr` 八品牌 + 伴生守卫;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`dataMonth` 全链 Brand;闭集 `Transport/RawMethod/CacheableMethod/FieldsDataset` 字面量联合。实测收益:scan-status 传非法 id 现在入口 USAGE 快速失败,不再落服务端;domain 语法注入(`evil.cn OR service:telnet`)入口即拦。
-2. ~~**查询族 zod output schema**~~ **已落地**(24/24 全覆盖):结构化命令用显式 schema(docs/hits/hosts/aggregations/icons/tasks);透传形命令(compare/cve 详情/scan-status/rate)用 z.object({}).passthrough() 声明对象形不锁键;CTA 等附加字段经 passthrough 保留。output schema 同时即 MCP 工具面的输出契约。
+2. **查询族 zod output schema**:已落地 22/24(user/查询族/scan 族/参考族/管理族);syntax 与 export 未声明(离线命令,输出形由代码与测试锁定),如需 MCP 输出契约补齐再声明。透传形命令(compare/cve 详情/scan-status/rate)用 z.object({}).passthrough() 声明对象形不锁键。
 3. ~~**QuakeServiceDoc/QuakeHostDoc 集中 interface**~~ **已落地**(src/types.ts),hostname 双态类型显式。
 4. ~~**CacheEntry.body 收紧 + 响应选择性 schema**~~ **已落地**(src/schemas.ts):`detectQuakeError`(信封探测 + message 归一化,字符串 '0' 判成功)/`parseListBody`(列表形:items/total/paginationId,硬形漂移显式空态)/`parseAggBody`(聚合形)。网络路径与命令消费共用同一组解析器,service/host/domain/vuln-scroll/agg 全部脱离 `as` 断言;信封错误处理收敛单点。TTL_HOURS 经 `satisfies Record<CacheableMethod, number>` 穷尽闭合,keyof 断言已拆。
 5. **积分事故防线** **已落地**:validSize 完整数值域(整数 1-500)入口拦截;domain 上限 100。

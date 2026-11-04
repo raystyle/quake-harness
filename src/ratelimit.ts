@@ -6,13 +6,16 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from '
  *
  * AIMD(Additive Increase / Multiplicative Decrease)自适应:
  * - 状态文件记住当前节奏(每两次调用最小间隔 minIntervalMs)
- * - 连续成功:间隔线性收紧(加速),但不低于下限
- * - q3005 限流:间隔翻倍(减速)+ 静默期,连续撞墙则指数退避
- * - 调用前若距上次不足当前间隔,自动 sleep 到点再发——调用方无感知
- * - 状态原子写(临时文件+rename),并发进程共享同一份节奏
+ * - 连续成功:间隔线性收紧 200ms/次(加速),不低于下限 800ms
+ * - q3005 限流:新间隔 = 当前间隔 * 2^n(n 为连续撞墙次数,指数退避)
+ *   + 30s 静默期;上限 5 分钟
+ * - 调用前若距上次不足当前间隔,自动 sleep 到点再发,调用方无感知
+ * - 并发边界:状态写为原子替换(临时文件+rename,防读到半文件),
+ *   但 read-modify-write 与 acquire 占位无跨进程互斥,并发进程可能
+ * 丢更新或同时占位(实践可接受:后果只是节奏短暂不准,不致超发)
  *
- * 初始值保守:3s 间隔起步;下限 800ms(服务端实测约 20 次/分钟容忍);
- * 上限 5 分钟(严重限流时的长退避)。
+ * 下限 800ms 由服务端实测推出:约 20 次/分钟以内未见 q3005
+ * (对应最小间隔 3s = 60/20;收紧到 800ms 是试探后的激进下限)。
  */
 
 const INIT_MS = 3_000
@@ -187,7 +190,7 @@ export function peek(): {
   }
 }
 
-/** 节奏复位(测试与 rate-reset) */
+/** 节奏复位(测试与 rate --reset) */
 export function resetState(): void {
   writeState(defaults())
 }

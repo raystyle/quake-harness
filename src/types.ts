@@ -8,8 +8,9 @@
 declare const brand: unique symbol
 type Brand<T, B extends string> = T & { readonly [brand]: B }
 
-/** 服务文档 id(Quake 文档身份):24 位 hex 或 host_port_transport 形。
- *  实测:同一 ip:port 不同 vhost 即不同 doc_id(81.70.185.165:8144 有 4 行),
+/** 服务文档 id(Quake 文档身份),实测三形态:
+ *  24 位 hex / ip_port_transport / host_port_transport(vhost 域名前缀)。
+ *  同一 ip:port 不同 vhost 即不同 doc_id(81.70.185.165:8144 有 4 行),
  *  doc_id 是文档去重键,不是资产端点去重键;端点身份用 AssetKey */
 export type DocId = Brand<string, 'DocId'>
 
@@ -34,7 +35,7 @@ export type CacheKey = Brand<string, 'CacheKey'>
 /** 月库分桶键 'YYYY-MM',dataMonth() 产物 */
 export type Month = Brand<string, 'Month'>
 
-/** DocId 守卫:实测三种合法形态 —— 24 位 hex(search 响应)、ip_port_transport、
+/** DocId 守卫:实测三种合法形态 : 24 位 hex(search 响应)、ip_port_transport、
  *  host_port_transport(vhost 文档用域名作前缀,如 halifejewelry.com_443_tcp)。
  *  IP 形校验每段 <= 255;host 形走域名标签规则;端口 1-65535 */
 export function isDocId(v: string): v is DocId {
@@ -48,8 +49,8 @@ export function isDocId(v: string): v is DocId {
     // 纯数字四段按 IPv4 严校验:999.999.999.999 拒
     return host.split('.').every((o) => Number(o) <= 255)
   }
-  // 非纯数字:按域名 host 形(含至少一个点,字母数字连字符)
-  return /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/.test(host)
+  // 非纯数字:按域名 host 形(含至少一个点,标签字母数字连字符,单标签 63 内)
+  return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(host)
 }
 
 /** TaskId 守卫:24 位小写 hex(实测 fast_scan 任务 id 形) */
@@ -60,7 +61,7 @@ export function isTaskId(v: string): v is TaskId {
 /**
  * 域名(业务输入):标识一个DNS域。
  * 守卫校验纯域名形(RFC 1035 简化:字母数字连字符段 + 点分层级,总长 <= 253)。
- * 该守卫同时是 Quake 语法注入防线——domain 命令以 `domain:*.<输入>` 直拼查询,
+ * 该守卫同时是 Quake 语法注入防线:domain 命令以 `domain:*.<输入>` 直拼查询,
  * 传入 `evil.cn OR service:telnet` 这类串会改变查询语义,必须在入口拦截。
  */
 export type DomainName = Brand<string, 'DomainName'>
@@ -137,7 +138,7 @@ export function validSize(size: number, max = API_SIZE_MAX): boolean {
   return Number.isInteger(size) && size >= 1 && size <= max
 }
 
-/** CacheKey 守卫:32 位小写 hex(md5) */
+/** CacheKey 守卫:32 位小写 hex(cacheKey 产物,sha256 截断) */
 export function isCacheKey(v: string): v is CacheKey {
   return /^[0-9a-f]{32}$/.test(v)
 }

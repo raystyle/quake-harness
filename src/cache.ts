@@ -5,7 +5,8 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import type { CacheKey, RawMethod, CacheableMethod, FieldsDataset } from './types'
 
 /**
- * 平台标准目录解析(gh 模型:XDG + Win AppData;macOS 走 ~/.config,CLI 不用 Application Support)。
+ * 平台标准目录解析(gh 模型:XDG + Win AppData;macOS data 走 Application Support,
+ * cache 走 Caches,config 走 XDG 或 Application Support)。
  * QUAKEH_HOME 总开关:设置后 config/data/cache 全部落其下子目录(便携/CI)。
  * 旧 ~/.quake-h 自动迁移:首次发现旧目录且新数据目录为空时搬过去。
  */
@@ -55,8 +56,9 @@ function legacyHome(): string {
 let migrated = false
 /**
  * 旧目录一次性迁移:数据/缓存搬到新 data/cache。
- * 仅在「未设 QUAKEH_HOME(非便携/测试场景)且目标为空」时执行;
- * 便携模式与受控 HOME 跳过,避免把用户旧数据意外复制进临时/便携目录。
+ * 触发条件:未设 QUAKEH_HOME(便携/测试场景跳过)且旧目录存在,
+ * 且新 data 目录尚无 archive.sqlite(以 runs 库主文件为准判空;
+ * 月库已存在而 runs 库未建的情形不迁移,视为已初始化)。
  */
 function migrateOnce(): void {
   if (migrated) return
@@ -83,7 +85,7 @@ function migrateOnce(): void {
   }
 }
 
-/** quake-h 数据目录(archive.sqlite / ratelimit.json) */
+/** quake-h 数据目录(runs.sqlite / YYYY-MM 月库 / ratelimit.json) */
 export function quakeHHome(): string {
   migrateOnce()
   return platformDir('data')
@@ -137,8 +139,9 @@ export function cacheKey(method: string, query: string, params: unknown): CacheK
 
 export interface CacheEntry {
   fetched_at: string
-  /** 响应原文(Quake 信封 data+meta 之外的完整 body;结构保证:对象且含 code/message/data 三键,
-   *  形漂移由消费侧 schemas.ts 解析器统一容错,缓存层不做深校验以保回放零成本) */
+  /** 响应原文(Quake 信封 data+meta 之外的完整 body)。
+   *  生产者预期形:对象含 code/message/data 三键;缓存层不校验(回放零成本),
+   *  形漂移由消费侧 src/schemas.ts 解析器统一容错为空态 */
   body: unknown
 }
 

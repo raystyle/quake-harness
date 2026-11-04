@@ -1,10 +1,14 @@
 import { z } from 'incur'
 
 /**
- * Quake 响应选择性 schema(F04/F03 落地):
- * 只校验消费字段、passthrough 保留原始对象(不全量严格校验大响应,
- * 避免成本与字段丢失)。网络路径与缓存回放共用同一组解析器,
- * 上游/缓存数据形漂移时在此集中报错,而非各命令静默产出默认值。
+ * Quake 响应选择性 schema:只校验消费字段、passthrough 保留原始对象。
+ * 失败语义是「容错回落空态」不是报错:
+ * - parseEnvelope:信封判别联合;非对象/缺 code 视为 ok 透传(compare 等端点依赖此行为)
+ * - parseListBody:硬形漂移(data 非数组/非对象)返回空 items + null total,
+ *   与「查询真无结果」同形(取舍:不静默崩溃;调用方如需区分,查 cache 的 raw_path)
+ * - parseAggBody:data 缺失或非 facet map 返回空对象
+ * meta 只约束存在性,total 三形(pagination.total 数值/total 裸数值/total.value)
+ * 统一取值;meta 漂移不连坐 data。
  */
 
 // ---------------------------------------------------------------------------

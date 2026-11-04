@@ -227,11 +227,11 @@ export function registerHostCommands(cli: QuakeCli): void {
   })
 
   cli.command('host-honeypot', {
-    description: '主机蜜罐辅助判断:列出 host services 中可疑蜜罐特征(本地启发式,离线)',
+    description: '主机蜜罐辅助判断:判定逻辑本地启发式;数据取 host 查询(缓存未命中会联网)',
     args: z.object({
       ip: z.string().describe('IP 或 CIDR'),
     }),
-    hint: '结果为本地启发式(蜜罐常见多端口全开/异常协议组合),非官方判定。需权威结论用 web 端蜜罐识别。',
+    hint: '判定为本地启发式(端口面过宽/蜜罐协议组合),非官方判定;底层仍走一次 host 查询取数据(24h 缓存)。需权威结论用 web 端蜜罐识别。',
     output: z.object({
       ip: z.string(),
       service_count: z.number(),

@@ -75,7 +75,8 @@ async function quakeRequest(
  * 缓存包装:cache_key 命中且未 TTL 过期则直接回放缓存(不打网络不扣积分);
  * 未命中先过自适应限流闸门(ratelimit.json:AIMD 间隔控制 + q3005 指数退避),
  * 通过后走网络、原样落盘、记 query_runs;限流反馈自动调节奏,调用方无感。
- * noCache 参数对应各命令的 --ignore-cache / scroll 翻页语义。
+ * noCache 参数对应各命令的 --ignore-cache / scroll 翻页语义:
+ * 只跳过「读」,网络响应仍原样落盘 + 记 query_runs(翻页结果下次可审计)。
  */
 async function cachedQuake(
   method: RawMethod,
@@ -93,7 +94,7 @@ async function cachedQuake(
   }
 
   // 自适应限流闸门:到点自动发,未到点自动等到点(cooldown 最长等一轮);
-  // q3005 反馈进控制器(指数减速+静默),连续成功反馈收紧间隔——调用方无感知
+  // q3005 反馈进控制器(指数减速+静默),连续成功反馈收紧间隔:调用方无感知
   for (let attempt = 0; ; attempt++) {
     const gate = acquire()
     if (gate.waitMs > 0) {
@@ -199,7 +200,7 @@ const cli = Cli.create('quake-h', {
   description: '360 Quake 网络空间测绘 API 客户端(服务查询/主机查询/聚合/CVE 详情/对比/主动扫描)',
   mcp: {
     // 常规直出面:每个命令注册为独立 MCP 工具(带完整 inputSchema),
-    // 而非缺省的 search_tools 渐进发现四件套;22 个命令规模直出无压力
+    // 而非缺省的 search_tools 渐进发现四件套;24 个命令规模直出无压力
     tools: { discovery: 'direct' },
   },
   env: z.object({

@@ -35,7 +35,7 @@ export function registerScanCommands(cli: QuakeCli): void {
           ...(c.options.description ? { description: c.options.description } : {}),
         },
       })) as { data?: unknown; message?: string }
-      // 实测返回:任务 id 在 message 字段(24 位 hex),data 为空对象;守卫窄化进 TaskId 域
+      // 任务 id 主路径在 data(字符串形);message 字段为兼容回落(24 位 hex 校验)。守卫窄化进 TaskId 域
       const fromData = typeof json.data === 'string' ? json.data : String((json.data as Record<string, unknown>)?.id ?? '')
       const rawTaskId = fromData || (json.message && isTaskId(json.message) ? json.message : '')
       const taskId: TaskId | null = rawTaskId && isTaskId(rawTaskId) ? rawTaskId : null

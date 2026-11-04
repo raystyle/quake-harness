@@ -11,18 +11,34 @@
 | 类型守卫(伴生智能构造器) | 守卫即校验即铸造唯一入口:isDocId(三形态)/isTaskId/isMonth/isDomainName(兼注入防线)/isCveId/isFaviconHash/isIpCidr | src/types.ts |
 | 字面量联合(闭集) | Transport('tcp'/'udp')、RawMethod(含 `fields_${FieldsDataset}` 模板字面量)、CacheableMethod、FieldsDataset | src/types.ts |
 | as const + satisfies | TTL_HOURS `satisfies Record<CacheableMethod, number>` 穷尽闭合(新增可缓存方法漏配 TTL 编译失败) | src/cache.ts |
-| 智能构造器 + Zod(边界) | API 入口守卫 → Brand 域;响应侧 detectQuakeError/parseListBody/parseAggBody 选择性解析(passthrough 保留原文) | src/schemas.ts + 各命令 |
+| 智能构造器 + Zod(边界) | API 入口守卫 -> Brand 域;响应侧 detectQuakeError/parseListBody/parseAggBody 选择性解析(passthrough 保留原文) | src/schemas.ts + 各命令 |
 | 守卫即校验的失败语义 | toAssetRow 返 null 拒收非法 id;upsertAssets 自防御二次防线 | src/quake.ts + archive.ts |
 
-## 二、可辨识联合:已用近似形,待升级处
+## 二、可辨识联合
 
 **已用近似**:Quake 信封成功/失败由 `detectQuakeError` 返回 `null | {code,message}` 二态,命令侧 null 检查即收窄。
 
-**待升级(按收益排序)**:
+**已升级(2026-11-04 落地,commit 6bd49d1)**:
 
-1. **ScanStatus 闭集**:scan_tasks.status 全链裸 string。服务端状态全集未确认(实测见 Running/Paused/Done/Unknown),应先实测收割再建 `type ScanStatus = 'Running' | 'Paused' | 'Done' | ...` + 未知值兜底 `{ kind: 'known'; status: ScanStatus } | { kind: 'unknown'; raw: string }` 可辨识联合。scan-result 推导状态 bug(kimi F07)的根因就是 string 状态无闭集约束。
-2. **QuakeEnvelope 判别联合**:`{ kind: 'ok'; data; meta } | { kind: 'err'; code; message }` 替代 detectQuakeError 的 null 二态,parse 函数返联合后命令侧 switch 穷尽,漏处理编译期报错。
-3. **doctor 检查项**:`{ status: 'ok'|'warn'|'fail', name, detail }` 已是半可辨识(status 即判别键),可升级为带各自 detail 形的完全联合。
+1. ~~ScanStatus 判别联合~~:src/types.ts `scanStatus()`,known 闭集
+   Calculating/Running/Paused/Finish/Stop/Fail + {kind:'unknown';raw} 兜底;
+   词表证据见下表。scan-result 不再推导状态(只更新 result_count)。
+2. ~~QuakeEnvelope 判别联合~~:src/schemas.ts `parseEnvelope()` 返回
+   {kind:'ok';body}|{kind:'err';code,message},quakeRequest 消费侧 switch 收窄;
+   detectQuakeError 保留为 err 判别便捷形。
+3. ~~EndpointDocId 模板字面量~~:src/types.ts,类型层端点形约束。
+
+**ScanStatus 词表证据表**(服务端原词,采集于 2026-11-04 真实任务 6aea9f2f…):
+
+| 词 | 来源 | 证据强度 |
+|---|---|---|
+| Calculating | status_records 时间线(「加载扫描任务配置」) | 实测直查 |
+| Running | scan-status 顶层 status(任务 6ae98749…/6aea9f2f…) | 实测直查 |
+| Paused | scan-status 顶层 status(任务 6ae98749…) | 实测直查 |
+| Finish/Stop/Fail | 未观测到,按 Quake web 端状态命名惯例预置 | 假设(待实测确认) |
+| Unknown | 本地兜底词(scan-status 缺 status 字段时构造),非服务端词 | 代码定义 |
+
+doctor 检查项维持半可辨识(status 判别键 + 统一 detail 形),完全联合收益低暂不升级。
 
 ## 三、模板字面量:已用一处,可扩展
 
@@ -34,9 +50,9 @@
 
 | 反模式 | 本仓案例 | 处置 |
 |---|---|---|
-| 到处 as Brand | toAssetRow 曾 `'' as DocId` 空串偷渡 → 月库主键碰撞(F01) | 改守卫窄化 + null 拒收 |
+| 到处 as Brand | toAssetRow 曾 `'' as DocId` 空串偷渡 -> 月库主键碰撞(F01) | 改守卫窄化 + null 拒收 |
 | 双断言 as unknown as | 无(kimi 复查确认) | 保持 |
-| 内部重复运行时校验 | fts/domain 守卫后冗余 as | 已删 |
+| 内部重复运行时校验 | 守卫后冗余 as(fts --month 窄化局部变量保留一处,防 isMonth 演进) | 已最小化 |
 | 布尔标志表互斥态 | data_time_is_observed(列约束,非类型问题) | TimeAxis 接口已类型化注释 |
 
 ## 五、新增代码的类型化检查单

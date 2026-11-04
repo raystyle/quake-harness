@@ -10,11 +10,13 @@ import { isMonth, isDocId } from './types'
  *
  * 三时间一览(每行一个语义,勿混):
  * - data_time:Quake 引擎采集该资产的时刻(文档 time 字段);
- *   文档缺 time 时回落本地查询时刻,且 data_time_is_observed=1 打标(可信度降级)
+ *   time 缺失或非法(Date.parse 不可解析)均回落本地查询时刻,
+ *   且 data_time_is_observed=1 打标(可信度降级)
  * - first_seen:本地首次观测(查询到)该资产的时刻,UPSERT 不改
  * - last_seen:本地最近观测时刻,每次重查 UPSERT 推进
- * 分库:assets 落 data_time 对应的 YYYYMM.sqlite;跨库查询经 export --sql
- * 的 ATTACH 自动聚合。query_runs/aggs 是查询行为记录,不随数据分库,恒在 runs 库。
+ * 分库:assets 落 data_time 对应年月的 YYYY-MM.sqlite;无/非法 time
+ * 回落到「查询时刻所在月」,无特殊桶。跨库查询经 export --sql 的
+ * ATTACH 自动聚合。query_runs/aggs 是查询行为记录,不随数据分库,恒在 runs 库。
  */
 
 export interface AssetRow {
@@ -32,7 +34,7 @@ export interface AssetRow {
   raw_json: string
 }
 
-/** 数据时间的年月分桶(2026-11-03T.. -> 202611);无时间归 observation 兜底桶 */
+/** 数据时间的年月分桶:'2026-11-03T..' -> '2026-11';无/非法时间回落 fallbackNow 所在月 */
 export function dataMonth(iso: string, fallbackNow = new Date()): Month {
   const t = iso ? Date.parse(iso) : NaN
   const d = Number.isNaN(t) ? fallbackNow : new Date(t)
@@ -126,7 +128,7 @@ export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
   )
 }
 
-/** 月库缓存:YYYYMM.sqlite */
+/** 月库缓存:YYYY-MM.sqlite */
 const monthDbs = new Map<string, Database>()
 
 export function getMonthDb(month: Month): Database {
@@ -172,6 +174,10 @@ export function listMonths(): Month[] {
     .sort()
 }
 
+/** UPSERT 列规则(assets 月库):
+ *  插入列 = 全列;冲突更新列 = data_time/观测标/last_seen/raw_json/
+ *  service_name/hostname/country(随新文档推进);不变列 = doc_id/ip/port/
+ *  transport/first_seen(端点身份与首次观测定格) */
 /**
  * 跨月聚合:ATTACH 全部月库,给出 assets 的 UNION ALL 子查询引用。
  * 直接查 attached 库(SQLite 的 VIEW 不能引用 attached 库,子查询可以),
@@ -277,10 +283,11 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
 const enrichedRows = new Map<string, number>()
 
 // ---------------------------------------------------------------------------
-// FTS5 全文索引:external content 表挂 assets,可检索文本列从 raw_json 提取
+// FTS5 全文索引:独立 FTS 表(非 external content),按 assets.rowid 关联,
+// upsertAssets 后同步回填,assets 删行经触发器联动删除
 // ---------------------------------------------------------------------------
 
-/** FTS 虚表建表 + 删行同步触发器(独立 FTS 表,非 external content) */
+/** FTS 虚表建表 + 删行同步触发器 */
 function ensureFts(db: Database): void {
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(
@@ -293,7 +300,9 @@ function ensureFts(db: Database): void {
   `)
 }
 
-/** raw_json 提取 FTS 文本列(title/body/server/host);缺失容错为空串 */
+/** raw_json 提取 FTS 文本列;缺失容错为空串。
+ *  截断:title 500 / body 8000 / server 200 / host 300 字符:
+ *  检索词落在截断尾部会漏检(取舍:控库容;全文在 assets.raw_json 可 SQL 补查) */
 export function ftsColumns(rawJson: string): { title: string; body: string; server: string; host: string } {
   try {
     const d = JSON.parse(rawJson) as {
@@ -330,7 +339,8 @@ export function backfillFts(month: Month): number {
   return rows.length
 }
 
-/** 跨月 FTS 检索:各月库 MATCH 后 UNION,返回带月标与高亮片段的行 */
+/** 跨月 FTS 检索:按月库升序逐库 MATCH,凑满 limit 即止(非 SQL UNION);
+ *  返回行带月标与 snippet 高亮;空文本占位行(FTS 列全空)不返回 */
 export function ftsSearch(
   match: string,
   opts: { limit?: number; months?: Month[] } = {},

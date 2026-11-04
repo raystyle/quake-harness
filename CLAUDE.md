@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目定位
 
-360 Quake 网络空间测绘 API 的 CLI 与 MCP 双形态客户端,技术栈 Bun + incur + zod,面向 qiye.quake.360.net 企业版 API。结构三层:`src/cli.ts` 薄入口(注册顺序 = help/llms 面顺序)+ `src/quake.ts` 基础设施(cli 工厂/请求层/缓存包装)+ `src/commands/` 按族命令模块。
+360 Quake 网络空间测绘 API 的 CLI 与 MCP 双形态客户端,技术栈 Bun + incur + zod,面向 qiye.quake.360.net 企业版 API。结构四层:`src/cli.ts` 薄入口(注册顺序 = help/llms 面顺序)+ `src/quake.ts` 基础设施(cli 工厂/请求层/缓存包装)+ `src/types.ts` 品牌类型与领域契约 + `src/schemas.ts` 响应选择性解析器;`src/commands/` 按族命令模块。
 
 ## 常用命令
 
 ```sh
 bun src/cli.ts <cmd>            # 开发运行(如 user / search / cve)
-bun check                       # 类型检查(唯一的质量门)
+bun check                       # 类型检查(改动必须过;测试门见下行 bun test)
 bun build --compile --minify --sourcemap src/cli.ts --outfile dist/quake   # 编译单文件二进制
 bun src/cli.ts --llms           # agent 手册面(命令树自省)
 bun src/cli.ts --mcp            # MCP stdio server
@@ -18,7 +18,7 @@ bun src/cli.ts <cmd> --json     # 机器形输出(调试信封)
 bun src/cli.ts doctor           # 环境体检(离线;--net 免费探活)
 ```
 
-测试 `bun test`(tests/cli.test.ts,48 项):单元层(cache/archive/syntax 纯逻辑)+ 离线 CLI 集成 + API 冒烟(需 .env Key,自动节流防 q3005 限流)+ MCP stdio 链路。改命令后必跑。注意 service-search/domain 每条扣 1 积分,冒烟组总成本约 10 积分。
+测试 `bun test`(两文件:cli.test.ts 单元与集成 + fixtures.test.ts 全端点离线 fixture 回归;项数以实跑为准不手维护):单元层(cache/archive/syntax/schemas)+ 离线 CLI 集成 + 全端点 fixture 回归(真实付费响应转 mock,零网络)+ API 冒烟(需 .env Key,自动节流防 q3005)+ MCP stdio。改命令后必跑。
 
 凭据:项目 `.env` 的 `QuakeAPIKey`(bun 自动加载),或导出 `QUAKE_API_KEY`。
 

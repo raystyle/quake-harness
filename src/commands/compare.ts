@@ -23,7 +23,7 @@ export function registerCompareCommands(cli: QuakeCli): void {
       if (bad.length > 0) {
         return c.error({
           code: 'USAGE',
-          message: `doc id 须为 24 位 hex 或 ip_port_transport 形,无效输入: ${bad[0]!.slice(0, 40)}`,
+          message: `doc id 须为 24 位 hex / ip_port_transport / host_port_transport 形,无效输入: ${bad[0]!.slice(0, 40)}`,
           retryable: false,
         })
       }

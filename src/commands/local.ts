@@ -108,7 +108,7 @@ export function registerLocalCommands(cli: QuakeCli): void {
   })
 
   cli.command('export', {
-    description: '归档库导出(SQL 查询 → JSON/CSV/Parquet 文件)',
+    description: '归档库导出(SQL 查询 -> JSON/CSV/Parquet 文件)',
     options: z.object({
       sql: z.string().optional().describe('只读 SQL,如 SELECT * FROM assets;缺省导出全 assets 表'),
       as: z.enum(['json', 'csv', 'parquet']).default('json').describe('导出格式(避开全局 --format 才叫 as)'),
