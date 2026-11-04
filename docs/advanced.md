@@ -34,7 +34,7 @@ Bun 的 `.env` 加载跟 cwd 不跟脚本路径:项目根外跑 `bun /path/src/c
 - B 层归档:按数据时间分月库 `{data}/2026-11.sqlite`;`data_time` 为 Quake 采集时间(缺失回落观测时刻并打 `data_time_is_observed=1` 标),`first_seen`/`last_seen` 为本地观测;assets 主键 doc_id UPSERT,raw_json 整行保留
 - `runs.sqlite`:query_runs(调用记录与 scroll 断点)、aggs(聚合快照)、scan_tasks(扫描任务簿)
 - 跨月联邦:`export --sql` 的 `FROM assets` 自动改写为全部月库 UNION ALL 子查询
-- 全文检索:各月库带 FTS5 虚表 assets_fts(title/body/server/host,截断 500/8000/200/300),`quake-h fts 'FilesMan'` 离线检索已归档资产(title:b374k 列限定,server:"Apache" AND host:gov.cn 布尔组合)
+- 全文检索:各月库带 FTS5 虚表,`quake-h fts` 离线检索已归档资产;索引结构/检索语义/工作流详见 [fts.md](fts.md)
 
 ## 流式 Parquet 导出
 

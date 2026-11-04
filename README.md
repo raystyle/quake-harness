@@ -95,6 +95,6 @@ quake-h mcp add         # 注册进 Claude Code / Cursor 等
 
 ## 更多
 
-命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。漏洞测绘狩猎经验(L0-L3 分层确证、语法坑、噪声剔除)见 [docs/vuln_hunting_playbook.md](docs/vuln_hunting_playbook.md)。
+命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。漏洞测绘狩猎经验(L0-L3 分层确证)见 [docs/vuln_hunting_playbook.md](docs/vuln_hunting_playbook.md);全文检索用法见 [docs/fts.md](docs/fts.md)。
 
 测试 `bun test`(离线 fixture 回归 + API 冒烟;命令数与测试数以 `--llms` 与 `bun test` 实跑为准,不在此手维护);CI 打 tag `v*` 触发三平台编译发布。
