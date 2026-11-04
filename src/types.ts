@@ -8,8 +8,18 @@
 declare const brand: unique symbol
 type Brand<T, B extends string> = T & { readonly [brand]: B }
 
-/** 服务文档 id(24 位 hex),QuakeServiceDoc.id / AssetRow.doc_id */
+/** 服务文档 id(Quake 文档身份):24 位 hex 或 host_port_transport 形。
+ *  实测:同一 ip:port 不同 vhost 即不同 doc_id(81.70.185.165:8144 有 4 行),
+ *  doc_id 是文档去重键,不是资产端点去重键;端点身份用 AssetKey */
 export type DocId = Brand<string, 'DocId'>
+
+/** 资产端点业务身份:互联网上的一个服务端点。
+ *  统计资产数必须按 (ip,port,transport) 去重,按 doc_id 数会高估 */
+export interface AssetKey {
+  ip: string
+  port: number | null
+  transport: Transport
+}
 
 /** 主动扫描任务 id(24 位 hex),与 DocId 同形不同义,禁止互传 */
 export type TaskId = Brand<string, 'TaskId'>
@@ -46,6 +56,29 @@ export function isMonth(v: string): v is Month {
 
 /** 传输层协议(Quake 文档 transport 字段闭集) */
 export type Transport = 'tcp' | 'udp'
+
+// ---------------------------------------------------------------------------
+// 三时间语义:数据时间 vs 观测时间,品牌化禁止互串
+// ----------------------------------------------------------------------------
+
+/** 数据时间:Quake 引擎采集该资产的时刻(服务文档 time 字段),ISO 8601 */
+export type DataTime = Brand<string, 'DataTime'>
+
+/** 观测时间:本地首次/最近查询到该资产的时刻,ISO 8601 */
+export type SeenTime = Brand<string, 'SeenTime'>
+
+/**
+ * 一条资产在归档库的完整时间轴(assets 表三时间列的类型化投影):
+ * - data_time:Quake 采集时刻;is_observed 为 true 时表示文档无 time、
+ *   已回落本地查询时刻兜底(数据可信度降一级,分析时须区分)
+ * - first_seen / last_seen:本地观测窗(每次查询 UPSERT 推进 last_seen)
+ */
+export interface TimeAxis {
+  data_time: DataTime
+  data_time_is_observed: boolean
+  first_seen: SeenTime
+  last_seen: SeenTime
+}
 
 /** A 层缓存的 method 键(与命令名解耦:service-search 改名缓存不作废) */
 export type RawMethod =

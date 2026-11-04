@@ -205,12 +205,32 @@ first_seen TEXT, last_seen TEXT, raw_json TEXT
 
 UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)。[代码]
 
-三时间契约:`data_time` = Quake 采集时间(文档 time),空则回落本地查询时刻且 `data_time_is_observed=1` 标注;`first_seen/last_seen` = 本地观测窗。[代码]
+三时间契约(src/types.ts `TimeAxis`,品牌类型 DataTime/SeenTime 禁互串):
+
+| 列 | 语义 | 来源 | 变更规则 |
+|---|---|---|---|
+| `data_time` | Quake 引擎采集该资产的时刻 | 服务文档 `time` 字段 | UPSERT 跟进新文档时间 |
+| `data_time_is_observed` | data_time 是否为回落值 | 文档缺 time 时置 1 | 与 data_time 同步 |
+| `first_seen` | 本地首次观测(查询到)时刻 | 本地时钟 | UPSERT 永不改 |
+| `last_seen` | 本地最近观测时刻 | 本地时钟 | 每次重查 UPSERT 推进 |
+
+实数据验证:doc `116.228.18.70_4443_tcp` 的 data_time=2025-06-30(Quake 半年前采集)、first_seen=last_seen=2026-11-03(昨天首查)—— 两个时间轴相差 4 个月,语义分离在真实数据上成立。文档缺 time 的回落行 data_time_source 会标 `observed-fallback`,分析时可 `WHERE data_time_is_observed=0` 剔除降级数据。[实测]
 
 其余三表(恒在 runs 库,不分月):
 - `query_runs(ts, method, query, cache_key, total, count, pagination_id, raw_path)`:查询行为流水
 - `aggs(query_key, facet, bucket_key, doc_count, ts)`:聚合快照,PK 含 ts 支持时序对比
 - `scan_tasks(task_id PK, target, port_list, status, progress, total/send/success/failed, result_count, created_at, updated_at)`
+
+**实体模型与唯一键**(实测钉死,统计口径由此定):
+
+| 实体 | 唯一键 | 实测证据 |
+|---|---|---|
+| 服务文档 | `doc_id`(PK) | 同一端点多 vhost 即多行:81.70.185.165:8144 四行(s2.bytebytego.cn/allyworld.cn/lxgj/lingxiang 四个 vhost) |
+| 资产端点 | `(ip, port, transport)` 业务复合键 | 全库 45 文档行 vs 38 端点:按 doc_id 数资产高估 18% |
+| 主机 | `ip`(host 文档 id 即 ip) | — |
+| 扫描任务 | `task_id`(PK) | — |
+
+结论:**doc_id 是文档去重键,不是资产数**。`export --sql` 统计资产量必须 `COUNT(DISTINCT ip || ':' || port)`,数文档行数只是「观测到的文档面」。类型层:`AssetKey` interface 表达端点身份三件套,`DocId` 注释明示非端点键。[实测+代码]
 
 **投影损失清单**(assets 可 SQL 直查列 vs raw_json):丢 asn/org/province/city/isp/scene/title/body/response 等;`raw_json` 全在,`export --sql` 可 `json_extract(raw_json, '$.service.http.title')` 补救。[实测+代码]
 

@@ -5,17 +5,21 @@ import { quakeHHome, quakeHCache } from './cache'
 import type { DocId, TaskId, Month } from './types'
 
 /**
- * B 层归档:按数据时间(年月)分库 + 三时间语义分离。
+ * B 层归档:按数据时间(年月)分库 + 三时间语义分离(见 src/types.ts TimeAxis)。
  *
- * 三时间:
- * - data_time:Quake 采集时间(服务文档 time 字段),空则回落查询时刻(标注观测时间)
- * - first_seen / last_seen:本地首次/最近观测(查询)时间
+ * 三时间一览(每行一个语义,勿混):
+ * - data_time:Quake 引擎采集该资产的时刻(文档 time 字段);
+ *   文档缺 time 时回落本地查询时刻,且 data_time_is_observed=1 打标(可信度降级)
+ * - first_seen:本地首次观测(查询到)该资产的时刻,UPSERT 不改
+ * - last_seen:本地最近观测时刻,每次重查 UPSERT 推进
  * 分库:assets 落 data_time 对应的 YYYYMM.sqlite;跨库查询经 export --sql
  * 的 ATTACH 自动聚合。query_runs/aggs 是查询行为记录,不随数据分库,恒在 runs 库。
  */
 
 export interface AssetRow {
+  /** 文档身份(非端点身份):同一 ip:port 的不同 vhost 是不同 doc_id 多行 */
   doc_id: DocId
+  /** 端点业务身份三件套(AssetKey):统计资产数按 ip+port+transport 去重 */
   ip: string
   port: number | null
   transport: string
