@@ -109,8 +109,8 @@ export function isIpCidr(v: string): v is IpCidr {
 // 新词表以 kind:'unknown' 兜底,不经 any 丢类型
 // ---------------------------------------------------------------------------
 
-/** 实测已知的扫描任务状态闭集 */
-export type ScanStatusKnown = 'Calculating' | 'Running' | 'Paused' | 'Finish' | 'Stop' | 'Fail'
+/** 实测/官方文档已知的扫描任务状态闭集(官方文档:Finished 表示已完成) */
+export type ScanStatusKnown = 'Calculating' | 'Running' | 'Paused' | 'Finished' | 'Stop' | 'Fail'
 
 /** 扫描状态:已知词表或未知原文(可辨识联合,消费侧 switch 穷尽) */
 export type ScanStatus =
@@ -119,7 +119,7 @@ export type ScanStatus =
 
 /** ScanStatus 守卫与构造:唯一入口,未知值落 unknown 分支不丢信息 */
 export function scanStatus(raw: string): ScanStatus {
-  const KNOWN: readonly ScanStatusKnown[] = ['Calculating', 'Running', 'Paused', 'Finish', 'Stop', 'Fail']
+  const KNOWN: readonly ScanStatusKnown[] = ['Calculating', 'Running', 'Paused', 'Finished', 'Stop', 'Fail']
   return KNOWN.includes(raw as ScanStatusKnown)
     ? { kind: 'known', status: raw as ScanStatusKnown }
     : { kind: 'unknown', raw }

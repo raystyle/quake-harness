@@ -16,6 +16,10 @@
 | QuakeSubmitActiveScanURL | `/api/v3/fast_scan` | POST | 可用 | **query + port_list 必填**(缺 port_list 报 u3009);data 直接返回任务 id 字符串 |
 | QuakeGetActiveScanInfoURL | `/api/v3/fast_scan/{id}` | GET | 可用 | 返回 status/progress/total/send/success/failed/status_records 时间线 |
 | QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{id}` | GET | 可用 | `?start=&size=` 分页,meta.pagination.total;任务 Running 中结果为空 |
+| CustomScanSubmitURL | `/api/v3/custom_scan` | POST | 需 `front.api.custom_scan` 权限(2026-11-04 实测特权账户也被 q3012 挡) | 自定义扫描:ip_list/domain_list/port/scanner_dict/worker_group 必填,priority 1-3 选填;响应同 fast_scan(task_id 在 message) |
+| CustomScanInfoURL | `/api/v3/custom_scan/{task_id}` | GET | 同上权限(q3012) | 响应形同 fast_scan 详情(status=Finished 表示已完成) |
+
+**任务列表端点:不存在**(2026-11-04 探测)。fast_scan 与 custom_scan 均只有「新建 + 按 id 查详情/结果」;实测探测过的列表形(fast_scan/list、task_list、history、user/scan_tasks 等)全部 404 或参数错误。「查所有任务」只能靠本地任务簿(scan_tasks 表,scan-ls 命令)。
 | QuakeCompareDocURL | `/api/v3/search/compare/docs` | POST | 可用 | `doc_ids` 至少 3 个;返回多文档字段对比(control.scanner_hostname/service.name/task.* 等) |
 
 ## 权限说明
