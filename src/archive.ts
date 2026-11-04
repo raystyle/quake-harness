@@ -88,6 +88,10 @@ function openRunsDb(): Database {
       updated_at TEXT NOT NULL
     );
   `)
+  // 旧库迁移:runtime_id 列(扫描结果经 task.runtime_id 检索服务索引获取,延迟入库)
+  try {
+    db.exec("ALTER TABLE scan_tasks ADD COLUMN runtime_id TEXT NOT NULL DEFAULT ''")
+  } catch { /* 列已存在 */ }
   return db
 }
 
@@ -99,6 +103,8 @@ export interface ScanTaskRecord {
   /** 服务端状态原词(scanStatus 联合的列存形);空串 = 不改状态(scan-result 语义) */
   status: string
   progress: number
+  /** 扫描批次 id(详情端点 data.runtime_id);扫描产出经 task.runtime_id 检索服务索引,延迟入库 */
+  runtimeId?: string
   total?: number | null
   send?: number | null
   success?: number | null
@@ -109,9 +115,10 @@ export interface ScanTaskRecord {
 export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
   const now = new Date().toISOString()
   // status 为空串 = 不改状态(scan-result 只更新结果计数,状态由 scan-status 权威刷新)
+  // runtime_id 空串 = 不改(部分调用方只更新计数)
   db.query(`
-    INSERT INTO scan_tasks (task_id, target, port_list, status, progress, total, send, success, failed, result_count, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO scan_tasks (task_id, target, port_list, status, progress, total, send, success, failed, result_count, runtime_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(task_id) DO UPDATE SET
       status = CASE WHEN excluded.status = '' THEN scan_tasks.status ELSE excluded.status END,
       progress = CASE WHEN excluded.status = '' THEN scan_tasks.progress ELSE excluded.progress END,
@@ -120,11 +127,12 @@ export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
       success = excluded.success,
       failed = excluded.failed,
       result_count = excluded.result_count,
+      runtime_id = CASE WHEN excluded.runtime_id = '' THEN scan_tasks.runtime_id ELSE excluded.runtime_id END,
       updated_at = excluded.updated_at
   `).run(
     r.taskId, r.target, r.portList, r.status, r.progress,
     r.total ?? null, r.send ?? null, r.success ?? null, r.failed ?? null, r.resultCount ?? null,
-    now, now,
+    r.runtimeId ?? '', now, now,
   )
 }
 

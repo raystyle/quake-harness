@@ -6,17 +6,22 @@ import { isTaskId, scanStatus, scanStatusToString, type TaskId } from '../types'
 /** 主动扫描族:scan / scan-status / scan-result / scan-ls */
 export function registerScanCommands(cli: QuakeCli): void {
   cli.command('scan', {
-    description: '主动扫描任务(实测:query + port_list 必填,返回任务 id)',
+    description: '主动扫描任务(query 检索语法 / ip_list / domain_list 三种目标形,port_list 必填)',
+    hint: '提交形三选一(官方 API):--ip-list 数组、--domain-list 数组、缺省走 query 检索语法。建议 IP 与域名分开下两次(用户实践,分发更快)。',
     args: z.object({
-      target: z.string().describe('扫描目标,Quake 检索语法或 IP/域名'),
+      target: z.string().optional().describe('扫描目标,Quake 检索语法(与 --ip-list/--domain-list 三选一)'),
     }),
     options: z.object({
       portList: stringList('扫描端口,逗号分隔,如 80,443').optional(),
+      ipList: stringList('IP 列表,逗号分隔(数组形提交,与 target 三选一)').optional(),
+      domainList: stringList('域名列表,逗号分隔(数组形提交,与 target 三选一)').optional(),
       description: z.string().optional().describe('任务备注'),
     }),
     output: z.object({ task_id: z.string() }),
     examples: [
-      { args: { target: 'example.com' }, options: { portList: ['80', '443'] }, description: '对目标 80/443 发起主动扫描' },
+      { args: { target: 'example.com' }, options: { portList: ['80', '443'] }, description: 'query 形:对目标 80/443 发起主动扫描' },
+      { options: { ipList: ['1.1.1.1'], portList: ['443'] }, description: 'ip_list 形:单 IP' },
+      { options: { domainList: ['a.com', 'b.com'], portList: ['80', '443'] }, description: 'domain_list 形:域名列表' },
     ],
     async run(c) {
       const token = pickToken(c)
@@ -27,13 +32,30 @@ export function registerScanCommands(cli: QuakeCli): void {
           retryable: false,
         })
       }
+      // 目标形三选一守卫
+      const hasIp = Boolean(c.options.ipList?.length)
+      const hasDomain = Boolean(c.options.domainList?.length)
+      const hasQuery = Boolean(c.args.target)
+      if ([hasIp, hasDomain, hasQuery].filter(Boolean).length !== 1) {
+        return c.error({
+          code: 'USAGE',
+          message: '目标形三选一:--ip-list / --domain-list / 位置参 query(检索语法),勿混用或全缺',
+          retryable: false,
+        })
+      }
+      const body: Record<string, unknown> = {
+        port_list: c.options.portList!.join(','),
+        ...(c.options.description ? { description: c.options.description } : {}),
+      }
+      if (hasIp) body.ip_list = c.options.ipList
+      else if (hasDomain) body.domain_list = c.options.domainList
+      else body.query = c.args.target
+      const targetLabel = hasIp ? `ip:${c.options.ipList!.join(',')}`
+        : hasDomain ? `domain:${c.options.domainList!.join(',')}`
+        : c.args.target!
       const json = (await quakeRequest('/api/v3/fast_scan', token, {
         method: 'POST',
-        body: {
-          query: c.args.target,
-          port_list: c.options.portList!.join(','),
-          ...(c.options.description ? { description: c.options.description } : {}),
-        },
+        body,
       })) as { data?: unknown; message?: string }
       // 任务 id 主路径在 data(字符串形);message 字段为兼容回落(24 位 hex 校验)。守卫窄化进 TaskId 域
       const fromData = typeof json.data === 'string' ? json.data : String((json.data as Record<string, unknown>)?.id ?? '')
@@ -42,7 +64,7 @@ export function registerScanCommands(cli: QuakeCli): void {
       // 长时任务登记进 runs 库:跨会话可查,状态由 scan-status 刷新
       if (taskId) {
         upsertScanTask(getDb(), {
-          taskId, target: c.args.target, portList: c.options.portList!.join(','),
+          taskId, target: targetLabel, portList: c.options.portList!.join(','),
           status: 'Running', progress: 0,
         })
       }
@@ -93,6 +115,8 @@ export function registerScanCommands(cli: QuakeCli): void {
       const d = json.data ?? {}
       // 刷新任务库状态;状态经 scanStatus 联合窄化(未知词表不丢原文)
       const st = typeof d.status === 'string' ? scanStatus(d.status) : scanStatus('Unknown')
+      // runtime_id 回填:扫描产出经 task.runtime_id 检索服务索引获取(延迟入库)
+      const runtimeId = typeof d.runtime_id === 'string' ? d.runtime_id : ''
       upsertScanTask(getDb(), {
         taskId: c.args.taskId,
         target: String(d.target ?? ''),
@@ -103,8 +127,26 @@ export function registerScanCommands(cli: QuakeCli): void {
         send: (d.send as number) ?? null,
         success: (d.success as number) ?? null,
         failed: (d.failed as number) ?? null,
+        runtimeId,
       })
-      return d
+      return {
+        ...d,
+        ...(runtimeId
+          ? {
+              cta: {
+                description: '下一步:',
+                commands: [
+                  {
+                    command: 'service-search',
+                    args: { query: `task.runtime_id:"${runtimeId}"` },
+                    description: '查扫描采集结果(入服务索引,延迟较高,Finished 后需等)',
+                  },
+                  { command: 'scan-result', args: { taskId: c.args.taskId }, description: '查扫描风险项' },
+                ],
+              },
+            }
+          : {}),
+      }
     },
   })
 
@@ -232,8 +274,8 @@ export function registerScanCommands(cli: QuakeCli): void {
       }
 
       const rows = c.options.status
-        ? getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, updated_at FROM scan_tasks WHERE status = ? ORDER BY updated_at DESC').all(c.options.status)
-        : getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, updated_at FROM scan_tasks ORDER BY updated_at DESC').all()
+        ? getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, runtime_id, updated_at FROM scan_tasks WHERE status = ? ORDER BY updated_at DESC').all(c.options.status)
+        : getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, runtime_id, updated_at FROM scan_tasks ORDER BY updated_at DESC').all()
       return {
         count: rows.length,
         ...(recovered ? { recovered } : {}),
