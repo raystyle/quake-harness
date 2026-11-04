@@ -150,16 +150,96 @@ export function registerScanCommands(cli: QuakeCli): void {
 
   cli.command('scan-ls', {
     description: '列出本地登记的全部扫描任务(含状态与进度)',
-    output: z.object({ count: z.number(), tasks: z.array(z.unknown()) }),
-    options: z.object({
-      status: z.string().optional().describe('按状态过滤,如 Running/Done'),
+    hint: 'API 无任务列表端点(已实测钉死),本地簿是唯一「查所有任务」途径。--refresh 顺带拉服务端最新状态;--from-cache 从 raw 缓存找回未登记的失联任务 id。',
+    output: z.object({
+      count: z.number(),
+      recovered: z.number().optional(),
+      refreshed: z.number().optional(),
+      tasks: z.array(z.unknown()),
     }),
-    examples: [{ description: '列全部任务' }],
-    run(c) {
+    options: z.object({
+      status: z.string().optional().describe('按状态过滤,如 Running/Finished'),
+      refresh: z.boolean().default(false).describe('逐任务拉服务端最新状态并回写本地簿'),
+      fromCache: z.boolean().default(false).describe('扫 raw 缓存目录,把未登记的任务 id 找回本地簿(API 无列表,失联 id 唯一恢复途径)'),
+    }),
+    alias: { fromCache: 'C' },
+    examples: [
+      { description: '列全部任务' },
+      { options: { refresh: true }, description: '列之前先拉服务端最新状态' },
+      { options: { fromCache: true }, description: '从缓存找回失联任务 id' },
+    ],
+    async run(c) {
+      // --from-cache:raw 缓存里 scan-status/scan-result 的路径即任务 id
+      // (路径形 /fast_scan/<24hex> 或 /fast_scan/result/<24hex>),本地簿没有的登记回来
+      let recovered = 0
+      if (c.options.fromCache) {
+        const { readdirSync, existsSync } = await import('node:fs')
+        const { join } = await import('node:path')
+        const { quakeHCache } = await import('../cache')
+        const base = join(quakeHCache(), 'raw')
+        const known = new Set(
+          (getDb().query('SELECT task_id FROM scan_tasks').all() as Array<{ task_id: string }>).map((r) => r.task_id),
+        )
+        if (existsSync(base)) {
+          for (const m of readdirSync(base)) {
+            if (m !== 'scan_status' && m !== 'scan_result') continue
+            const dir = join(base, m)
+            for (const date of readdirSync(dir)) {
+              const ddir = join(dir, date)
+              try {
+                for (const f of readdirSync(ddir)) {
+                  const id = f.replace(/\.json$/, '')
+                  if (isTaskId(id) && !known.has(id)) {
+                    upsertScanTask(getDb(), { taskId: id, target: '(从缓存找回)', portList: '', status: 'Recovered', progress: 0 })
+                    known.add(id)
+                    recovered++
+                  }
+                }
+              } catch { /* 目录被并发清理等,跳过 */ }
+            }
+          }
+        }
+      }
+
+      // --refresh:逐任务拉服务端最新状态回写本地簿
+      let refreshed = 0
+      if (c.options.refresh) {
+        const token = pickToken(c)
+        const ids = getDb().query('SELECT task_id FROM scan_tasks').all() as Array<{ task_id: string }>
+        for (const { task_id } of ids) {
+          try {
+            const json = (await quakeRequest(`/api/v3/fast_scan/${task_id}`, token)) as {
+              data?: Record<string, unknown>
+            }
+            const d = json.data ?? {}
+            const st = typeof d.status === 'string' ? scanStatus(d.status) : scanStatus('Unknown')
+            upsertScanTask(getDb(), {
+              taskId: task_id as import('../types').TaskId,
+              target: String(d.target ?? ''),
+              portList: String(d.port_list ?? ''),
+              status: scanStatusToString(st),
+              progress: Number(d.progress ?? 0),
+              total: (d.total as number) ?? null,
+              send: (d.send as number) ?? null,
+              success: (d.success as number) ?? null,
+              failed: (d.failed as number) ?? null,
+            })
+            refreshed++
+          } catch {
+            // 单任务拉失败不挡列表(任务可能已被服务端清理)
+          }
+        }
+      }
+
       const rows = c.options.status
         ? getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, updated_at FROM scan_tasks WHERE status = ? ORDER BY updated_at DESC').all(c.options.status)
         : getDb().query('SELECT task_id, target, port_list, status, progress, total, send, success, failed, result_count, updated_at FROM scan_tasks ORDER BY updated_at DESC').all()
-      return { count: rows.length, tasks: rows }
+      return {
+        count: rows.length,
+        ...(recovered ? { recovered } : {}),
+        ...(refreshed ? { refreshed } : {}),
+        tasks: rows,
+      }
     },
   })
 }

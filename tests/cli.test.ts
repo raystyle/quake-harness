@@ -540,6 +540,26 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(out.code).toBe('USAGE')
   })
 
+  nt('scan-ls --from-cache: 找回失联任务 id(本地簿+缓存目录联动)', async () => {
+    const { writeFileSync, mkdirSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const { quakeHCache } = await import('../src/cache')
+    // 植入一个未登记的任务 id 缓存文件
+    const orphan = '6aea9f2f24798ef9acc6beef'
+    const dir = join(quakeHCache(), 'raw', 'scan_status', '2026-11-04')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, `${orphan}.json`), JSON.stringify({ fetched_at: '2026-11-04T00:00:00Z', body: { code: 0 } }))
+    const { out, exit } = await run(['scan-ls', '--from-cache'])
+    expect(exit).toBe(0)
+    expect(out.recovered).toBeGreaterThanOrEqual(1)
+    expect(out.tasks.some((t: any) => t.task_id === orphan && t.status === 'Recovered')).toBe(true)
+    // 清理假行(缓存文件留在受控 home,随 teardown 删除)
+    const { Database } = await import('bun:sqlite')
+    const db = new Database(join(home, 'runs.sqlite'))
+    db.query('DELETE FROM scan_tasks WHERE task_id = ?').run(orphan)
+    db.close()
+  })
+
   nt('doctor --net: 免费探活', async () => {
     const { out, exit } = await run(['doctor', '--net'])
     expect(exit).toBe(0)
