@@ -38,13 +38,13 @@ async function run(args: string[]): Promise<{ out: any; exit: number }> {
   return r
 }
 
-async function runOnce(args: string[]): Promise<{ out: any; exit: number }> {
+async function runOnce(args: string[], timeoutMs = 30000): Promise<{ out: any; exit: number }> {
   const proc = Bun.spawnSync(['bun', 'src/cli.ts', ...args, '--json'], {
     cwd: ROOT,
     env: { ...process.env, QUAKEH_HOME: home },
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 30000,
+    timeout: timeoutMs,
   })
   const exit = proc.exitCode ?? 0
   const text = proc.stdout.toString().trim()
@@ -606,14 +606,15 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(filtered.out.total).toBeLessThan(out.total)
   })
 
-  nt('domain: 同参数二跑命中缓存(时间窗取整到天,cache_key 稳定)', async () => {
+  test('domain: 同参数二跑命中缓存(时间窗取整到天,cache_key 稳定)', async () => {
     // 回归:时间窗曾精确到秒,cache_key 每次都变,同参重复查询永远 miss(实扣积分)
-    const first = await run(['domain', 'qq.com', '--size', '1'])
+    // 时限 90s:首查打网络,连续冒烟下可能叠加限流静默等待
+    const first = await runOnce(['domain', 'qq.com', '--size', '1'], 90000)
     expect(first.out.cache_hit).toBe(false)
-    const second = await run(['domain', 'qq.com', '--size', '1'])
+    const second = await runOnce(['domain', 'qq.com', '--size', '1'], 90000)
     expect(second.out.cache_hit).toBe(true)     // 同天内同参数必须命中
     expect(second.out.archived).toBe(0)          // 命中缓存不重复归档
-  })
+  }, 90000)
 
   nt('domain: size 超 100 报 USAGE', async () => {
     const { out, exit } = await run(['domain', 'qq.com', '--size', '101'])
