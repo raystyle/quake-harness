@@ -46,28 +46,32 @@ export interface ListBody {
 
 const ListEnvelope = z
   .object({
+    // data 只约束数组性;meta 形宽容错(实测三形并存:
+    // search 族 pagination.total / scroll 族 {value} 或裸数值 total,
+    // 收敛到下面 extract 统一取值,meta 漂移不连坐 items)
     data: z.array(z.unknown()).nullish(),
-    meta: z
-      .object({
-        pagination: z.object({ total: z.number().nullish() }).passthrough().nullish(),
-        total: z.object({ value: z.number().nullish() }).passthrough().nullish(),
-        pagination_id: z.string().nullish(),
-      })
-      .passthrough()
-      .nullish(),
+    meta: z.unknown().nullish(),
   })
   .passthrough()
 
-/** 解析列表形响应:缺 data 容错为空数组,meta 形漂移容错为 null(不再 as 断言) */
+/** 解析列表形响应:缺 data 容错为空数组;meta 三形 total 统一取值 */
 export function parseListBody(body: unknown): ListBody {
   const parsed = ListEnvelope.safeParse(body)
   if (!parsed.success) {
-    // 硬形漂移(非对象/结构崩坏):显式空结果,交给调用方空态处理
+    // 硬形漂移(非对象/data 非数组):显式空结果,交给调用方空态处理
     return { items: [], total: null, paginationId: null }
   }
   const { data, meta } = parsed.data
-  const total = meta?.pagination?.total ?? meta?.total?.value ?? null
-  const paginationId = typeof meta?.pagination_id === 'string' ? meta.pagination_id : null
+  const m = (meta ?? {}) as Record<string, unknown>
+  const pag = (m.pagination ?? {}) as Record<string, unknown>
+  const t = m.total
+  const total =
+    typeof pag.total === 'number' ? pag.total
+    : typeof t === 'number' ? t
+    : t !== null && typeof t === 'object' && typeof (t as Record<string, unknown>).value === 'number'
+      ? (t as Record<string, unknown>).value as number
+      : null
+  const paginationId = typeof m.pagination_id === 'string' ? m.pagination_id : null
   return { items: data ?? [], total, paginationId }
 }
 

@@ -104,6 +104,49 @@ describe('cache 单元', async () => {
   })
 })
 
+describe('schemas 单元', async () => {
+  const { parseListBody, parseAggBody, detectQuakeError } = await import('../src/schemas')
+
+  test('parseListBody meta 三形 total(search/scroll 文档形/scroll 裸数值形)', () => {
+    // search 族:meta.pagination.total
+    const a = parseListBody({ code: 0, data: [{}, {}], meta: { pagination: { total: 42 } } })
+    expect(a.total).toBe(42)
+    expect(a.items).toHaveLength(2)
+    // scroll 文档形:meta.total.value + pagination_id
+    const b = parseListBody({ code: 0, data: [], meta: { total: { value: 123 }, pagination_id: 'pid' } })
+    expect(b.total).toBe(123)
+    expect(b.paginationId).toBe('pid')
+    // scroll 实测裸数值形:host_scroll/vuln_scroll 的 meta.total 是数,不是 {value}
+    const c = parseListBody({ code: 0, data: [{}], meta: { total: 999, pagination_id: 'pid2' } })
+    expect(c.total).toBe(999)
+    expect(c.paginationId).toBe('pid2')
+    // meta 缺失/非对象:全回落 null,不连坐 items
+    const d = parseListBody({ code: 0, data: [{}], meta: null })
+    expect(d.items).toHaveLength(1)
+    expect(d.total).toBeNull()
+  })
+
+  test('parseListBody 硬形漂移显式空态', () => {
+    expect(parseListBody('not an object').items).toEqual([])
+    expect(parseListBody({ data: 'not-array' }).items).toEqual([])
+  })
+
+  test('detectQuakeError:字符串 0 判成功,message 归一化', () => {
+    expect(detectQuakeError({ code: 0, message: 'ok' })).toBeNull()
+    expect(detectQuakeError({ code: '0', message: 'ok' })).toBeNull()  // F03:字符串 0
+    expect(detectQuakeError(null)).toBeNull()
+    expect(detectQuakeError({ code: 'q3005', message: '调用API过于频繁' })?.message).toBe('调用API过于频繁')
+    expect(detectQuakeError({ code: 401, message: null })?.message).toBe('')  // null message 不崩
+  })
+
+  test('parseAggBody facet -> buckets', () => {
+    const r = parseAggBody({ code: 0, data: { service: [{ key: 'http', doc_count: 5 }] } })
+    expect(r.service?.[0]?.doc_count).toBe(5)
+    expect(parseAggBody({ data: null })).toEqual({})
+    expect(parseAggBody('junk')).toEqual({})
+  })
+})
+
 describe('archive 单元', async () => {
   const { getDb, upsertAssets, recordRun, getMonthDb, dataMonth, listMonths, openFederatedDb } = await import('../src/archive')
 
