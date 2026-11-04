@@ -166,6 +166,48 @@ describe('archive 单元', async () => {
     expect(r.pagination_id).toBe('pid1')
     expect(r.raw_path).toBe('/x')
   })
+
+  test('isDocId 三形态与边界(实测样本驱动的十用例表)', async () => {
+    const { isDocId } = await import('../src/types')
+    const cases: Array<[string, boolean]> = [
+      // 实测合法形态:24 位 hex / ip_port_transport / host_port_transport(vhost 域名前缀)
+      ['6aea744d3600298f35d503a2', true],
+      ['123.207.109.89_8000_tcp', true],
+      ['halifejewelry.com_443_tcp', true],
+      ['yfa.minigali3.big-wash.ru_80_tcp', true],
+      // 端点语义边界:IPv4 段超界 / 端口 0 / 端口超界拒
+      ['999.999.999.999_80_tcp', false],
+      ['1.2.3.4_0_tcp', false],
+      ['1.2.3.4_99999_tcp', false],
+      // 异形:裸串 / 空串 / 无点 host 拒
+      ['bad-id', false],
+      ['', false],
+      ['not_a_domain_80_tcp', false],
+    ]
+    for (const [v, want] of cases) expect(isDocId(v)).toBe(want)
+  })
+
+  test('upsertAssets 自防御拒收非法 doc_id(空串键碰撞防线)', () => {
+    const db = getDb()
+    const r = upsertAssets(db, [
+      { doc_id: 'not-valid-id' as import('../src/types').DocId, ip: '1.1.1.1', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}' },
+      { doc_id: '4.4.4.4_80_tcp' as import('../src/types').DocId, ip: '4.4.4.4', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}' },
+    ])
+    expect(r).toBe(1) // 非法拒收,合法入库
+    const bad = getMonthDb('2025-06' as import('../src/types').Month).query("SELECT count(*) AS n FROM assets WHERE doc_id = ''").get() as any
+    expect(bad.n).toBe(0) // 空串键零行(不再碰撞)
+  })
+
+  test('非法 time 回落观测时刻并打 observed 标(F02)', () => {
+    const db = getDb()
+    upsertAssets(db, [{
+      doc_id: '5.5.5.5_80_tcp' as import('../src/types').DocId, ip: '5.5.5.5', port: 80, transport: 'tcp', service_name: '', hostname: '', country: '', time: 'garbage-time', raw_json: '{}',
+    }])
+    const m = dataMonth('')
+    const r: any = getMonthDb(m).query("SELECT data_time, data_time_is_observed FROM assets WHERE doc_id = '5.5.5.5_80_tcp'").get()
+    expect(r.data_time_is_observed).toBe(1)
+    expect(Number.isFinite(Date.parse(r.data_time))).toBe(true) // 存的是合法 ISO,非原非法串
+  })
 })
 
 describe('syntax 单元', async () => {
