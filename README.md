@@ -4,6 +4,10 @@
 
 **v0.2.0 亮点**:`domain` 域名资产枚举(CDN/蜜罐过滤 + 自动归档)/ `fts` 归档库 FTS5 全文检索(离线零积分)/ `doctor` 环境体检(Key/目录/归档/限流,`--net` 免费探活)。
 
+## 快速上手
+
+五分钟路径(doctor 体检 -> 免费聚合 -> 付费首查 -> 离线复用):见 [docs/quickstart.md](docs/quickstart.md)。
+
 ## 安装
 
 二进制(无需 Bun):从 [Releases](https://github.com/raystyle/quake-harness/releases) 下载对应平台(linux-x64/arm64/musl、windows-x64/arm64、darwin-x64/arm64,附 sha256),按下面「加入 PATH」部署后即可全局使用 `quake-h`。
@@ -95,6 +99,6 @@ quake-h mcp add         # 注册进 Claude Code / Cursor 等
 
 ## 更多
 
-命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。漏洞测绘狩猎经验(L0-L3 分层确证)见 [docs/vuln_hunting_playbook.md](docs/vuln_hunting_playbook.md);全文检索用法见 [docs/fts.md](docs/fts.md)。
+命令全量与参数:`quake-h --help` / `--llms`;高级用法(数据目录、缓存归档架构、Parquet 导出、限流、扫描任务簿、MCP 细节、权限矩阵)见 [docs/advanced.md](docs/advanced.md)。漏洞测绘狩猎(L0-L3 分层确证)见 [playbook](docs/vuln_hunting_playbook.md);全文检索见 [fts](docs/fts.md);SQL/Parquet 导出见 [export 食谱](docs/export_recipes.md);报错排障见 [troubleshooting](docs/troubleshooting.md);参与开发见 [CONTRIBUTING](docs/contributing.md)。
 
 测试 `bun test`(离线 fixture 回归 + API 冒烟;命令数与测试数以 `--llms` 与 `bun test` 实跑为准,不在此手维护);CI 打 tag `v*` 触发三平台编译发布。

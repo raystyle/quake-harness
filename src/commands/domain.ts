@@ -81,15 +81,17 @@ export function registerDomainCommands(cli: QuakeCli): void {
       if (o.noHoneypot) shortcuts.push(SHORTCUTS.honeypot)
       if (o.filterRequest) shortcuts.push(SHORTCUTS.filterRequest)
 
+      // 官方默认只看近一年数据;时间窗取整到天(00:00:00 / 当天日期):
+      // 精确到秒会让 cache_key 每次都变,同参数重复查询永远不命中缓存
+      const day = new Date().toISOString().slice(0, 10)
       const body: Record<string, unknown> = {
         query,
         start: o.start,
         size: o.size,
         ignore_cache: o.ignoreCache,
         latest: o.ignoreCache,
-        // 官方默认只看近一年数据(时间格式对齐 getdate:"%Y-%m-%d %H:%M:%S")
-        start_time: new Date(Date.now() - 365 * 864e5).toISOString().replace('T', ' ').slice(0, 19),
-        end_time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        start_time: `${new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10)} 00:00:00`,
+        end_time: `${day} 23:59:59`,
       }
       if (shortcuts.length) body.shortcuts = shortcuts
 

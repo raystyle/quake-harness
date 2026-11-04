@@ -279,3 +279,34 @@ export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `
 - 主机文档:`raw/host_search/2026-11-03/`(103.198.42.236,8 services)
 - 漏洞文档:`raw/vuln_scroll/2026-11-03/`(total 4,574,235)
 - cve/agg/icon:同日期目录最新一份
+
+
+## 8. 数据文件运维附录
+
+**ratelimit.json**(QUAKEH_HOME 下,原子写:临时文件 + rename):
+字段 minIntervalMs(当前最小间隔,clamp 800-300000)/ lastCallAt / cooldownUntil /
+consecutiveLimited / consecutiveOk / totalCalls / totalLimited / updatedAt(ISO)。
+每次 acquire/reportOk/reportLimited 读写;损坏或手改由 readState 逐字段校验回落默认,
+不进运算。删除安全:下次调用按初始 3s 间隔重建。
+
+**raw 缓存清理**:raw/<method>/<date>/ 按查询日分层,TTL 过期只是不回放,**文件不自动清理**;
+可整日期目录删除(不影响归档库),或设 QUAKEH_HOME 到临时盘做一次性环境。
+
+**备份与恢复**:全部状态在 QUAKEH_HOME 三目录。备份 = 拷目录(建议先停并发查询);
+恢复 = 原位放回。月库/ runs 库是 SQLite,拷贝时注意 WAL 文件(-wal/-shm)一并带走。
+
+**直接改库风险**:assets UPSERT 语义与 FTS 同步依赖代码路径,直接 UPDATE assets
+不同步 assets_fts(检索将漏该行);scan_tasks 部分更新语义依赖空串哨兵,手改易破坏。
+改库后跑 `fts --backfill` 校齐 FTS;结构变更走代码迁移,勿手 ALTER。
+
+## 9. 数据敏感性与分享边界
+
+- **敏感面**:raw_json 含完整响应(HTTP body/证书/漏洞证据),export 产物与
+  fixture 同样携带;归档里可能有未公开资产、内网地址、凭据泄露痕迹
+- **保留**:无自动过期;敏感查询建议用独立 QUAKEH_HOME(用后整目录删除)
+- **清理**:删月库文件即清该月资产;raw 目录可独立清;runs.sqlite 的 query_runs
+  含查询语句本身(同样敏感)
+- **fixture 脱敏**:tests/fixtures 收割真实响应,入库前人工过目;敏感样本用
+  结构等价替代,勿原样入仓
+- **分享前检查**:导出文件先 grep 目标关键词确认无意外敏感内容;凭据(.env)
+  与数据目录分离,勿一起打包

@@ -28,6 +28,12 @@ Key 加载链:进程环境变量 > cwd `.env` > 用户应用数据目录 `.env`(
 
 Bun 的 `.env` 加载跟 cwd 不跟脚本路径:项目根外跑 `bun /path/src/cli.ts` 读不到项目 `.env`,回项目根或用环境变量。
 
+## fields 与 syntax 的区别(易混)
+
+- `syntax <关键词>`:离线静态参考,Quake 检索语法字段怎么写(129 字段 + 运算符),零网络
+- `fields <dataset>`:服务端动态能力面,该数据集当前实际可筛选/可聚合的字段清单(7d 缓存)
+- 用法:写查询前查 syntax 语法;查询报 u3017(不支持字段)时查 fields 确认该数据集能力
+
 ## 缓存与归档架构
 
 - A 层缓存:响应原样落 `{cache}/raw/{method}/{yyyy-mm-dd}/{cache_key}.json`;cache_key = sha256(method+query+参数稳定序列化),同参 32 位;TTL(search 24h/agg 7d/cve 30d/icon 7d)内回放零积分;空结果不落盘

@@ -606,6 +606,15 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(filtered.out.total).toBeLessThan(out.total)
   })
 
+  nt('domain: 同参数二跑命中缓存(时间窗取整到天,cache_key 稳定)', async () => {
+    // 回归:时间窗曾精确到秒,cache_key 每次都变,同参重复查询永远 miss(实扣积分)
+    const first = await run(['domain', 'qq.com', '--size', '1'])
+    expect(first.out.cache_hit).toBe(false)
+    const second = await run(['domain', 'qq.com', '--size', '1'])
+    expect(second.out.cache_hit).toBe(true)     // 同天内同参数必须命中
+    expect(second.out.archived).toBe(0)          // 命中缓存不重复归档
+  })
+
   nt('domain: size 超 100 报 USAGE', async () => {
     const { out, exit } = await run(['domain', 'qq.com', '--size', '101'])
     expect(exit).toBe(1)
