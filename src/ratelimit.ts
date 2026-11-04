@@ -65,18 +65,30 @@ export function readState(): RateLimitState {
     const raw = JSON.parse(readFileSync(statePath(), 'utf-8')) as Partial<RateLimitState>
     const d = defaults()
     return {
-      minIntervalMs: clamp(typeof raw.minIntervalMs === 'number' ? raw.minIntervalMs : d.minIntervalMs),
-      lastCallAt: raw.lastCallAt ?? d.lastCallAt,
-      cooldownUntil: raw.cooldownUntil ?? d.cooldownUntil,
-      consecutiveLimited: raw.consecutiveLimited ?? d.consecutiveLimited,
-      consecutiveOk: raw.consecutiveOk ?? d.consecutiveOk,
-      totalCalls: raw.totalCalls ?? d.totalCalls,
-      totalLimited: raw.totalLimited ?? d.totalLimited,
-      updatedAt: raw.updatedAt ?? d.updatedAt,
+      // 逐字段校验:数值域 finite/非负才收,损坏或手改文件逐项回落默认
+      // (minIntervalMs 另受 clamp 域约束;lastCallAt/cooldownUntil 为 epoch ms 非负)
+      minIntervalMs: clamp(numberOr(raw.minIntervalMs, d.minIntervalMs)),
+      lastCallAt: nonNegIntOr(raw.lastCallAt, d.lastCallAt),
+      cooldownUntil: nonNegIntOr(raw.cooldownUntil, d.cooldownUntil),
+      consecutiveLimited: nonNegIntOr(raw.consecutiveLimited, d.consecutiveLimited),
+      consecutiveOk: nonNegIntOr(raw.consecutiveOk, d.consecutiveOk),
+      totalCalls: nonNegIntOr(raw.totalCalls, d.totalCalls),
+      totalLimited: nonNegIntOr(raw.totalLimited, d.totalLimited),
+      updatedAt: typeof raw.updatedAt === 'string' && Number.isFinite(Date.parse(raw.updatedAt))
+        ? raw.updatedAt
+        : d.updatedAt,
     }
   } catch {
     return defaults()
   }
+}
+
+function numberOr(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback
+}
+
+function nonNegIntOr(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : fallback
 }
 
 function clamp(v: number): number {

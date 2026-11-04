@@ -2,24 +2,12 @@ import { Cli, Errors, z } from 'incur'
 import { cacheKey, readCache, writeRaw, TTL_HOURS, readUserEnvFallback } from './cache'
 import { getDb, recordRun, type AssetRow } from './archive'
 import { acquire, reportOk, reportLimited, LIMITS } from './ratelimit'
-import { isDocId, type DocId, type RawMethod } from './types'
+import { isDocId, type DocId, type RawMethod, type CacheableMethod } from './types'
+import { detectQuakeError } from './schemas'
 
 const { IncurError } = Errors
 
 const QUAKE_HOST = process.env.QUAKE_HOST || 'https://qiye.quake.360.net'
-
-interface QuakeErrorShape {
-  code: string
-  message: string
-}
-
-/** Quake 统一返回信封:code 非零(数值 0 或字符串 '0' 均为成功)即失败 */
-function isQuakeError(body: unknown): body is QuakeErrorShape {
-  if (typeof body !== 'object' || body === null) return false
-  if (!('code' in body) || !('message' in body)) return false
-  const { code } = body as { code: unknown }
-  return code !== 0 && code !== '0'
-}
 
 /**
  * Quake API 统一请求:服务端错误(code != 0)抛 IncurError,
@@ -57,8 +45,9 @@ async function quakeRequest(
     })
   }
   const json = (await res.json().catch(() => null)) as unknown
-  if (isQuakeError(json)) {
-    const msg = json.message
+  const err = detectQuakeError(json)
+  if (err) {
+    const msg = err.message
     const needPermission = msg.includes('Missing permission') || msg.includes('权限')
     const noCredit = msg.includes('积分')
     const next = needPermission
@@ -67,7 +56,7 @@ async function quakeRequest(
         ? ' 下一步: quake-h user 查月度剩余额度,或缩小 --size 减少扣费。'
         : ''
     throw new IncurError({
-      code: json.code,
+      code: String(err.code),
       message: msg + next,
       retryable: noCredit,
     })
@@ -97,7 +86,7 @@ async function cachedQuake(
   opts?: { noCache?: boolean; ttlHours?: number },
 ): Promise<{ json: unknown; cacheHit: boolean; rawPath?: string; cacheKeyStr: string }> {
   const key = cacheKey(method, query, params)
-  const ttl = opts?.ttlHours ?? TTL_HOURS[method as keyof typeof TTL_HOURS] ?? 0
+  const ttl = opts?.ttlHours ?? (method in TTL_HOURS ? TTL_HOURS[method as CacheableMethod] : 0)
   if (!opts?.noCache && ttl > 0) {
     const hit = readCache(method, key, ttl)
     if (hit) return { json: hit.body, cacheHit: true, cacheKeyStr: key }

@@ -2,6 +2,7 @@ import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, saveAgg } from '../archive'
 import { isIpCidr, validSize, API_SIZE_MAX } from '../types'
+import { parseListBody, parseAggBody } from '../schemas'
 
 /** 主机数据族:host-search / host-scroll / host-agg / host-honeypot */
 
@@ -87,10 +88,9 @@ export function registerHostCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/search/quake_host', body },
         { noCache: o.ignoreCache },
       )
-      const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
-      const items = typed.data ?? []
+      const { items, total } = parseListBody(json)
       return {
-        total: typed.meta?.pagination?.total ?? null,
+        total,
         count: items.length,
         cache_hit: cacheHit,
         cache_key: cacheKeyStr,
@@ -136,11 +136,9 @@ export function registerHostCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/scroll/quake_host', body },
         { noCache: true },
       )
-      const typed = json as { data?: unknown[]; meta?: { pagination_id?: string; total?: { value?: number } } }
-      const items = typed.data ?? []
-      const paginationId = typed.meta?.pagination_id
+      const { items, total, paginationId } = parseListBody(json)
       return {
-        total: typed.meta?.total?.value ?? null,
+        total,
         count: items.length,
         cache_key: cacheKeyStr,
         raw_path: rawPath ?? null,
@@ -195,8 +193,7 @@ export function registerHostCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/aggregation/quake_host', body },
         { noCache: o.ignoreCache },
       )
-      const typed = json as { data?: Record<string, Array<{ key: string; doc_count: number }>> }
-      const aggregations = typed.data ?? {}
+      const aggregations = parseAggBody(json)
       if (!cacheHit) {
         const queryKey = `host|${c.args.query}|${o.by.join(',')}`
         for (const [facet, buckets] of Object.entries(aggregations)) {
@@ -230,8 +227,7 @@ export function registerHostCommands(cli: QuakeCli): void {
         path: '/api/v3/search/quake_host',
         body,
       })
-      const typed = json as { data?: unknown[] }
-      const items = typed.data ?? []
+      const { items } = parseListBody(json)
       if (items.length === 0) {
         return c.error({
           code: 'NOT_FOUND',

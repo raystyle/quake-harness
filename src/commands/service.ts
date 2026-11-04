@@ -2,6 +2,7 @@ import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
 import { getDb, upsertAssets, saveAgg } from '../archive'
 import { validSize, API_SIZE_MAX } from '../types'
+import { parseListBody, parseAggBody } from '../schemas'
 
 /** 服务数据查询族:search / scroll / agg */
 
@@ -67,12 +68,11 @@ export function registerServiceCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/search/quake_service', body },
         { noCache: o.ignoreCache },
       )
-      const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
-      const items = typed.data ?? []
+      const { items, total } = parseListBody(json)
       const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
       const archived = cacheHit ? 0 : upsertAssets(getDb(), rows)
       return {
-        total: typed.meta?.pagination?.total ?? null,
+        total,
         count: items.length,
         cache_hit: cacheHit,
         archived,
@@ -141,13 +141,11 @@ export function registerServiceCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/scroll/quake_service', body },
         { noCache: true },
       )
-      const typed = json as { data?: unknown[]; meta?: { pagination_id?: string; total?: { value?: number } } }
-      const items = typed.data ?? []
+      const { items, total, paginationId } = parseListBody(json)
       const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
     const archived = upsertAssets(getDb(), rows)
-      const paginationId = typed.meta?.pagination_id
       return {
-        total: typed.meta?.total?.value ?? null,
+        total,
         count: items.length,
         archived,
         cache_key: cacheKeyStr,
@@ -213,8 +211,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/aggregation/quake_service', body },
         { noCache: o.ignoreCache },
       )
-      const typed = json as { data?: Record<string, Array<{ key: string; doc_count: number }>> }
-      const aggregations = typed.data ?? {}
+      const aggregations = parseAggBody(json)
       if (!cacheHit) {
         const queryKey = `${c.args.query}|${o.by.join(',')}`
         for (const [facet, buckets] of Object.entries(aggregations)) {

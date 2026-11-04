@@ -1,4 +1,5 @@
 import { z } from 'incur'
+import { parseListBody } from '../schemas'
 import { cachedQuake, pickToken, type QuakeCli } from '../quake'
 
 /** 漏洞数据索引族:vuln-scroll(需漏洞数据角色) */
@@ -40,14 +41,9 @@ export function registerVulnScrollCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/scroll/quake_vulnerability', body },
         { noCache: true },
       )
-      const typed = json as {
-        data?: Array<Record<string, unknown>>
-        meta?: { pagination_id?: string; total?: { value?: number } }
-      }
-      const items = typed.data ?? []
-      const paginationId = typed.meta?.pagination_id
+      const { items, total, paginationId } = parseListBody(json)
       return {
-        total: typed.meta?.total?.value ?? null,
+        total,
         count: items.length,
         cache_key: cacheKeyStr,
         raw_path: rawPath ?? null,

@@ -254,14 +254,15 @@ export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `
 | L3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
 | L4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
 
-建议(按性价比排序;1-3 已落地,标记状态):
+建议(按性价比排序;1-5 已落地,标记状态):
 
-1. ~~**标识符品牌类型化**~~ **已落地**(src/types.ts):`DocId/TaskId/CacheKey/Month/DomainName/CveId/FaviconHash/IpCidr` 八品牌 + 伴生守卫;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`dataMonth` 全链 Brand;闭集 `Transport/RawMethod` 字面量联合。实测收益:scan-status 传非法 id 现在入口 USAGE 快速失败,不再落服务端;domain 语法注入(`evil.cn OR service:telnet`)入口即拦。
-2. **给查询族补 zod output schema**:已落地 4/24(user/doctor/fts/domain 未全);剩余 service-search/scroll/agg、host 族、vuln-scroll、compare、scan 族是 L2 空档,incur output schema 同时约束 `--json` 与 MCP 工具面,补齐后一次性闭环。
+1. ~~**标识符品牌类型化**~~ **已落地**(src/types.ts):`DocId/TaskId/CacheKey/Month/DomainName/CveId/FaviconHash/IpCidr` 八品牌 + 伴生守卫;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`dataMonth` 全链 Brand;闭集 `Transport/RawMethod/CacheableMethod/FieldsDataset` 字面量联合。实测收益:scan-status 传非法 id 现在入口 USAGE 快速失败,不再落服务端;domain 语法注入(`evil.cn OR service:telnet`)入口即拦。
+2. **给查询族补 zod output schema**:已落地 4/24(user/doctor/fts/domain);其余命令以 L0/L1 响应解析器(见 4)先行闭合运行时契约,命令级 output schema 后续按需补。
 3. ~~**QuakeServiceDoc/QuakeHostDoc 集中 interface**~~ **已落地**(src/types.ts),hostname 双态类型显式。
-4. **CacheEntry.body 收紧为 QuakeEnvelope**:`body: unknown` 至少改为 `{ code: unknown; message: unknown; data: unknown; meta?: unknown }`,信封形状变更时回放层可给出明确错误而非静默降级。
-5. **积分事故防线**(本轮新增,已落地):service-search/host-search size 上限 500(API_SIZE_MAX)入口拦截;domain 上限 100(官方同款)。
-6. 低优先:raw 落盘加 schema_version 字段(Envelope 内已可从 body 形状探测,暂无实际翻车案例)。
+4. ~~**CacheEntry.body 收紧 + 响应选择性 schema**~~ **已落地**(src/schemas.ts):`detectQuakeError`(信封探测 + message 归一化,字符串 '0' 判成功)/`parseListBody`(列表形:items/total/paginationId,硬形漂移显式空态)/`parseAggBody`(聚合形)。网络路径与命令消费共用同一组解析器,service/host/domain/vuln-scroll/agg 全部脱离 `as` 断言;信封错误处理收敛单点。TTL_HOURS 经 `satisfies Record<CacheableMethod, number>` 穷尽闭合,keyof 断言已拆。
+5. **积分事故防线** **已落地**:validSize 完整数值域(整数 1-500)入口拦截;domain 上限 100。
+6. ~~**ratelimit.json 逐字段校验**~~ **已落地**:readState 数值域 finite/非负整数逐项回落,updatedAt ISO 可解析校验,损坏文件不再进运算。
+7. 低优先:raw 落盘加 schema_version 字段(Envelope 内已可从 body 形状探测,暂无实际翻车案例)。
 
 ## 7. 样本来源 [实测]
 

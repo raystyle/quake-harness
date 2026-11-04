@@ -2,6 +2,7 @@ import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
 import { getDb, upsertAssets } from '../archive'
 import { isDomainName, type DomainName } from '../types'
+import { parseListBody } from '../schemas'
 
 /**
  * 域名族:domain(对齐官方 Rust CLI quake_rs 的 domain 子命令语义)
@@ -86,13 +87,12 @@ export function registerDomainCommands(cli: QuakeCli): void {
         { method: 'POST', path: '/api/v3/search/quake_service', body },
         { noCache: o.ignoreCache },
       )
-      const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
-      const items = typed.data ?? []
+      const { items, total } = parseListBody(json)
       // 与 service-search 同契约:命中即归档(缓存命中不重复扣行)
       const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
       const archived = cacheHit ? 0 : upsertAssets(getDb(), rows)
       return {
-        total: typed.meta?.pagination?.total ?? null,
+        total,
         count: items.length,
         cache_hit: cacheHit,
         archived,
