@@ -10,6 +10,7 @@ import { registerCveCommands } from './commands/cve'
 import { registerCompareCommands } from './commands/compare'
 import { registerScanCommands } from './commands/scan'
 import { registerVulnScrollCommands } from './commands/vuln-scroll'
+import { registerDomainCommands } from './commands/domain'
 import { registerHostCommands } from './commands/host'
 import { registerReferenceCommands } from './commands/reference'
 import { registerLocalCommands } from './commands/local'
@@ -21,6 +22,7 @@ registerCveCommands(cli)           // cve
 registerCompareCommands(cli)       // compare
 registerScanCommands(cli)          // scan, scan-status, scan-result, scan-ls
 registerVulnScrollCommands(cli)    // vuln-scroll
+registerDomainCommands(cli)        // domain
 registerHostCommands(cli)          // host-search, host-scroll, host-agg, host-honeypot
 registerReferenceCommands(cli)     // fields, icon
 registerLocalCommands(cli)         // syntax, rate, cache, export

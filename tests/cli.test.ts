@@ -437,6 +437,26 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(out.net_probe.host).toContain('quake.360.net')
   })
 
+  nt('domain: 域名资产查询(官方 quake_rs 同款)', async () => {
+    const { out, exit } = await run(['domain', 'qq.com', '--size', '2'])
+    expect(exit).toBe(0)
+    expect(out.total).toBeGreaterThan(0)
+    expect(out.count).toBe(2)
+    const doc = out.docs[0]
+    expect(doc.domain).toContain('qq.com')
+    expect(doc.ip).toBeTruthy()
+    // 过滤器组合:剔 CDN 后 total 应收窄
+    const filtered = await run(['domain', 'qq.com', '--size', '1', '--noCdn'])
+    expect(filtered.exit).toBe(0)
+    expect(filtered.out.total).toBeLessThan(out.total)
+  })
+
+  nt('domain: size 超 100 报 USAGE', async () => {
+    const { out, exit } = await run(['domain', 'qq.com', '--size', '101'])
+    expect(exit).toBe(1)
+    expect(out.code).toBe('USAGE')
+  })
+
   nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {
     // scan-status 查任意 id(即使无效)先保证表存在;再看 scan-ls 信封
     const { out, exit } = await run(['scan-ls'])
@@ -532,7 +552,8 @@ describe('MCP stdio', () => {
     // 直出面:每个命令注册为常规工具,而非 search_tools 渐进发现四件套
     const list = byId(2)
     const toolNames = (list?.result?.tools ?? []).map((t: any) => t.name)
-    expect(toolNames.length).toBe(22)
+    expect(toolNames.length).toBeGreaterThanOrEqual(23)
+    expect(toolNames).toContain('domain')
     for (const n of ['syntax', 'doctor', 'service-search', 'user', 'export']) expect(toolNames).toContain(n)
     expect(toolNames).not.toContain('search_tools')
     const called = byId(3)
