@@ -33,7 +33,7 @@ interface QuakeEnvelope<T> {
 }
 ```
 
-实现位置:`src/quake.ts` 的 `isQuakeError()` 只消费 code != 0 分支;data/meta 由各命令以 `as` 断言消费,无运行时校验。[代码]
+实现位置:`src/schemas.ts` 的 `parseEnvelope()` 信封判别联合(成功/失败),`parseListBody`/`parseAggBody` 消费 data/meta,漂移容错为空态;历史实现(2026-11-03 前)是 `isQuakeError` + 各命令 `as` 断言直透。[代码]
 
 ### 1.2 服务文档(search/scroll 的 data[] 元素) [实测]
 
@@ -201,7 +201,7 @@ interface AssetRow {                    // 服务文档 -> 月库行
 }
 ```
 
-assets 月库表(YYYYMM.sqlite,按 data_time 分桶):
+assets 月库表(YYYY-MM.sqlite,按 data_time 分桶):
 
 ```sql
 doc_id TEXT PRIMARY KEY, ip TEXT, port INTEGER, transport TEXT,
@@ -210,7 +210,7 @@ data_time TEXT, data_time_is_observed INTEGER,   -- 三时间语义分离
 first_seen TEXT, last_seen TEXT, raw_json TEXT
 ```
 
-UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)。[代码]
+UPSERT 语义:同 doc_id 重查推进 data_time/观测标/last_seen/raw_json/service_name/hostname/country(随新文档),不变 doc_id/ip/port/transport/first_seen;缓存命中跳过归档不推进任何时间列。[代码]
 
 三时间契约(src/types.ts `TimeAxis`,品牌类型 DataTime/SeenTime 禁互串):
 
@@ -219,9 +219,9 @@ UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)
 | `data_time` | Quake 引擎采集该资产的时刻 | 服务文档 `time` 字段 | UPSERT 跟进新文档时间 |
 | `data_time_is_observed` | data_time 是否为回落值 | 文档缺 time 时置 1 | 与 data_time 同步 |
 | `first_seen` | 本地首次观测(查询到)时刻 | 本地时钟 | UPSERT 永不改 |
-| `last_seen` | 本地最近观测时刻 | 本地时钟 | 每次重查 UPSERT 推进 |
+| `last_seen` | 本地最近归档时刻 | 本地时钟 | 网络响应实际归档时推进;缓存命中跳过归档不推进 |
 
-实数据验证:doc `116.228.18.70_4443_tcp` 的 data_time=2025-06-30(Quake 半年前采集)、first_seen=last_seen=2026-11-03(昨天首查): 两个时间轴相差 4 个月,语义分离在真实数据上成立。文档缺 time 的回落行 data_time_source 会标 `observed-fallback`,分析时可 `WHERE data_time_is_observed=0` 剔除降级数据。[实测]
+实数据验证:doc `116.228.18.70_4443_tcp` 的 data_time=2025-06-30 与 first_seen=last_seen=2026-11-03,两时间轴相差约 17 个月,语义分离在真实数据上成立。文档缺/非法 time 的回落行打 `data_time_is_observed=1`,分析时可 `WHERE data_time_is_observed=0` 剔除降级数据。[实测]
 
 其余三表(恒在 runs 库,不分月):
 - `query_runs(ts, method, query, cache_key, total, count, pagination_id, raw_path)`:查询行为流水
@@ -259,7 +259,7 @@ export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `
 |---|---|---|---|
 | C0 原始响应 | 无(消费侧 `as` 断言) | 无 | 上游漂移静默降级,靠 raw 落盘事后可查 |
 | C1 缓存 | CacheEntry 两键 | 无(body unknown) | 回放信任原文,fetched_at 是唯一元数据 |
-| C2 命令输出 | TS 推断;仅 user/doctor 有 zod | 2/23 | **最大空档**:输出面无守卫 |
+| C2 命令输出 | TS 推断 + zod output schema | 22/24(缺 syntax/export,离线命令由测试锁定) | 已基本闭合;MCP 工具面输出契约同源 |
 | C3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
 | C4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
 

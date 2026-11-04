@@ -17,18 +17,18 @@ import { registerLocalCommands } from './commands/local'
 import { registerFtsCommands } from './commands/fts'
 import { registerDoctorCommands } from './commands/doctor'
 
-registerAccountCommands(cli)       // user
-registerServiceCommands(cli)       // service-search, service-scroll, service-agg
-registerCveCommands(cli)           // cve
-registerCompareCommands(cli)       // compare
-registerScanCommands(cli)          // scan, scan-status, scan-result, scan-ls
-registerVulnScrollCommands(cli)    // vuln-scroll
-registerDomainCommands(cli)        // domain
-registerHostCommands(cli)          // host-search, host-scroll, host-agg, host-honeypot
-registerReferenceCommands(cli)     // fields, icon
-registerLocalCommands(cli)         // syntax, rate, cache, export
-registerFtsCommands(cli)          // fts(归档全文检索)
-registerDoctorCommands(cli)       // doctor
+registerAccountCommands(cli)
+registerServiceCommands(cli)
+registerCveCommands(cli)
+registerCompareCommands(cli)
+registerScanCommands(cli)
+registerVulnScrollCommands(cli)
+registerDomainCommands(cli)
+registerHostCommands(cli)
+registerReferenceCommands(cli)
+registerLocalCommands(cli)
+registerFtsCommands(cli)
+registerDoctorCommands(cli)
 
 // SIGINT/SIGTERM:清理后非零退出(Windows 下 SIGTERM 由 Bun 模拟)
 process.on('SIGINT', () => process.exit(130))

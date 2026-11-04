@@ -98,7 +98,6 @@ export function registerDoctorCommands(cli: QuakeCli): void {
     async run(c) {
       const checks: CheckItem[] = []
 
-      // 1. token 链
       const token = probeToken()
       checks.push(
         token.found
@@ -109,7 +108,6 @@ export function registerDoctorCommands(cli: QuakeCli): void {
             },
       )
 
-      // 2-4. 三目录可写探针
       const dataDir = quakeHHome()
       const cacheDir = quakeHCache()
       const configDir = quakeHConfig()
@@ -118,7 +116,6 @@ export function registerDoctorCommands(cli: QuakeCli): void {
         checks.push({ name, status: p.ok ? 'ok' : 'fail', detail: `${dir} ${p.detail}` })
       }
 
-      // 5. 归档库
       let archive = { runs: 0, aggs: 0, scan_tasks: 0, months: 0, month_list: [] as string[] }
       try {
         const db = getDb()
@@ -135,7 +132,6 @@ export function registerDoctorCommands(cli: QuakeCli): void {
         checks.push({ name: 'archive-db', status: 'fail', detail: `打开失败: ${(err as Error).message}` })
       }
 
-      // 6. 限流节奏
       const rl = peek()
       const rlWarn = rl.cooldownActive || rl.consecutiveLimited > 0
       checks.push({
@@ -145,7 +141,6 @@ export function registerDoctorCommands(cli: QuakeCli): void {
           : `节奏正常:最小间隔 ${rl.minIntervalMs}ms,累计调用 ${rl.totalCalls}`,
       })
 
-      // 7. 旧目录残留
       const legacy = join(homedir(), '.quake-h')
       if (existsSync(legacy) && legacy !== dataDir && legacy !== cacheDir && legacy !== configDir) {
         checks.push({

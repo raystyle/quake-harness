@@ -119,15 +119,15 @@ export function registerScanCommands(cli: QuakeCli): void {
       const runtimeId = typeof d.runtime_id === 'string' ? d.runtime_id : ''
       upsertScanTask(getDb(), {
         taskId: c.args.taskId,
-        target: String(d.target ?? ''),
-        portList: String(d.port_list ?? ''),
         status: scanStatusToString(st),
         progress: Number(d.progress ?? 0),
-        total: (d.total as number) ?? null,
-        send: (d.send as number) ?? null,
-        success: (d.success as number) ?? null,
-        failed: (d.failed as number) ?? null,
+        total: typeof d.total === 'number' ? d.total : undefined,
+        send: typeof d.send === 'number' ? d.send : undefined,
+        success: typeof d.success === 'number' ? d.success : undefined,
+        failed: typeof d.failed === 'number' ? d.failed : undefined,
         runtimeId,
+        // target/portList/resultCount 不传:详情端点无 target 回显,
+        // 传空串会抹掉簿内登记值(部分更新语义,undefined = 不改)
       })
       return {
         ...d,
@@ -177,11 +177,12 @@ export function registerScanCommands(cli: QuakeCli): void {
         token,
       )) as { data?: unknown; meta?: { pagination?: { total?: number } } }
       const total = json.meta?.pagination?.total ?? null
-      // 只更新结果计数,不改状态:服务端状态由 scan-status 权威刷新
-      // (total>0 推 Done 会把「完成但零结果」错标 Running)
+      // 只更新结果计数,状态由 scan-status 权威刷新;
+      // 其余列不传 = 不改(部分更新语义),不会抹掉簿内登记
       upsertScanTask(getDb(), {
-        taskId: c.args.taskId, target: '', portList: '',
-        status: '', progress: 0, resultCount: total,
+        taskId: c.args.taskId,
+        status: '',
+        resultCount: total,
       })
       return {
         total,
@@ -257,14 +258,13 @@ export function registerScanCommands(cli: QuakeCli): void {
             const st = typeof d.status === 'string' ? scanStatus(d.status) : scanStatus('Unknown')
             upsertScanTask(getDb(), {
               taskId: task_id as import('../types').TaskId,
-              target: String(d.target ?? ''),
-              portList: String(d.port_list ?? ''),
               status: scanStatusToString(st),
               progress: Number(d.progress ?? 0),
-              total: (d.total as number) ?? null,
-              send: (d.send as number) ?? null,
-              success: (d.success as number) ?? null,
-              failed: (d.failed as number) ?? null,
+              total: typeof d.total === 'number' ? d.total : undefined,
+              send: typeof d.send === 'number' ? d.send : undefined,
+              success: typeof d.success === 'number' ? d.success : undefined,
+              failed: typeof d.failed === 'number' ? d.failed : undefined,
+              runtimeId: typeof d.runtime_id === 'string' ? d.runtime_id : '',
             })
             refreshed++
           } catch {

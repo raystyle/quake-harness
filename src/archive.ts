@@ -98,11 +98,13 @@ function openRunsDb(): Database {
 /** scan 任务登记/刷新 */
 export interface ScanTaskRecord {
   taskId: TaskId
-  target: string
-  portList: string
+  /** 部分更新语义:undefined = 不改该列;仅 scan 提交时必传 */
+  target?: string
+  portList?: string
   /** 服务端状态原词(scanStatus 联合的列存形);空串 = 不改状态(scan-result 语义) */
   status: string
-  progress: number
+  /** 部分更新语义:未传时 status 空串场景下保持原值 */
+  progress?: number
   /** 扫描批次 id(详情端点 data.runtime_id);扫描产出经 task.runtime_id 检索服务索引,延迟入库 */
   runtimeId?: string
   total?: number | null
@@ -115,11 +117,22 @@ export interface ScanTaskRecord {
 export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
   const now = new Date().toISOString()
   // status 为空串 = 不改状态(scan-result 只更新结果计数,状态由 scan-status 权威刷新)
-  // runtime_id 空串 = 不改(部分调用方只更新计数)
+  // 部分更新语义:undefined = 不改该列;显式传值(含 null)才覆盖。
+  // SQL 层用 COALESCE(excluded.x, scan_tasks.x) 实现:未传的列在 INSERT 侧
+  // 填当前值占位,冲突更新时保持不变。status 空串另有「不改状态」语义(scan-result)
+  const cur = db.query('SELECT target, port_list, status, progress, total, send, success, failed, result_count, runtime_id FROM scan_tasks WHERE task_id = ?').get(r.taskId) as Record<string, unknown> | null
+  const prev = cur ?? {}
+  const pick = <T,>(next: T | undefined, key: string): T | null => {
+    if (next !== undefined) return next as T | null
+    const p = prev[key]
+    return (p === undefined || p === null ? null : p) as T | null
+  }
   db.query(`
     INSERT INTO scan_tasks (task_id, target, port_list, status, progress, total, send, success, failed, result_count, runtime_id, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(task_id) DO UPDATE SET
+      target = excluded.target,
+      port_list = excluded.port_list,
       status = CASE WHEN excluded.status = '' THEN scan_tasks.status ELSE excluded.status END,
       progress = CASE WHEN excluded.status = '' THEN scan_tasks.progress ELSE excluded.progress END,
       total = excluded.total,
@@ -130,8 +143,13 @@ export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
       runtime_id = CASE WHEN excluded.runtime_id = '' THEN scan_tasks.runtime_id ELSE excluded.runtime_id END,
       updated_at = excluded.updated_at
   `).run(
-    r.taskId, r.target, r.portList, r.status, r.progress,
-    r.total ?? null, r.send ?? null, r.success ?? null, r.failed ?? null, r.resultCount ?? null,
+    r.taskId,
+    (r.target !== undefined ? r.target : String(prev.target ?? '')),
+    (r.portList !== undefined ? r.portList : String(prev.port_list ?? '')),
+    r.status,
+    (r.progress !== undefined ? r.progress : Number(prev.progress ?? 0)),
+    pick(r.total, 'total'), pick(r.send, 'send'), pick(r.success, 'success'),
+    pick(r.failed, 'failed'), pick(r.resultCount, 'result_count'),
     r.runtimeId ?? '', now, now,
   )
 }
@@ -182,10 +200,6 @@ export function listMonths(): Month[] {
     .sort()
 }
 
-/** UPSERT 列规则(assets 月库):
- *  插入列 = 全列;冲突更新列 = data_time/观测标/last_seen/raw_json/
- *  service_name/hostname/country(随新文档推进);不变列 = doc_id/ip/port/
- *  transport/first_seen(端点身份与首次观测定格) */
 /**
  * 跨月聚合:ATTACH 全部月库,给出 assets 的 UNION ALL 子查询引用。
  * 直接查 attached 库(SQLite 的 VIEW 不能引用 attached 库,子查询可以),
@@ -229,6 +243,9 @@ export function recordRun(db: Database, r: RunRecord): void {
   )
 }
 
+/** UPSERT 列规则(assets 月库):冲突更新列 = data_time/观测标/last_seen/
+ *  raw_json/service_name/hostname/country(随新文档推进);不变列 = doc_id/ip/
+ *  port/transport/first_seen(端点身份与首次观测定格);缓存命中跳过归档不推进 */
 export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
   if (rows.length === 0) return 0
   const now = new Date().toISOString()
@@ -238,7 +255,6 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
   if (valid.length < rows.length) {
     process.stderr.write(`[archive] 拒收 ${rows.length - valid.length} 条非法 doc_id 文档\n`)
   }
-  // 按数据年月分组,各组写自己的月库
   const byMonth = new Map<Month, AssetRow[]>()
   for (const a of valid) {
     // 数据时间可解析才算真实采集时间;空串/非法串一律回落观测时刻并打标

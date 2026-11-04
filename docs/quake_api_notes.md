@@ -2,7 +2,7 @@
 
 更新:2026-11
 域名:`https://qiye.quake.360.net`(企业版)
-凭据:`.env` 的 QuakeAPIKey(见 README 环境变量章节)
+凭据:`.env` 的 QuakeAPIKey(见 [README 配置节](../README.md#配置))
 
 ## 常量表对应接口实测总表
 
@@ -14,18 +14,29 @@
 | QuakeVulnerabilityInfoURL | `/api/v3/vulnerability/db/cve/detail/{cve}` | GET | 可用 | 免费,不扣积分;查不到返回 code 0 + 空 data |
 | QuakeAggregationURL | `/api/v3/aggregation/quake_service` | POST | 可用 | `aggregation_list` 最多 2 个字段 |
 | QuakeSubmitActiveScanURL | `/api/v3/fast_scan` | POST | 可用 | 提交形三选一:query(检索语法)/ ip_list(数组)/ domain_list(数组);port_list 必填(缺报 u3009);建议 ip 与域名分开下两次(用户实践);响应 task_id 在 message |
-| QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{runtime_id}` | GET | 可用 | **路径参数是 runtime_id 非 task_id**(详情端点 data.runtime_id 映射;实测 task_id 也能被接受,但官方形为 runtime_id);`?start=&size=` 分页 |
-| QuakeGetActiveScanInfoURL | `/api/v3/fast_scan/{id}` | GET | 可用 | 返回 status/progress/total/send/success/failed/status_records 时间线 |
-| QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{id}` | GET | 可用 | `?start=&size=` 分页,meta.pagination.total;任务未完成时结果为空(Sent 后 worker 执行中) |
+| QuakeGetActiveScanInfoURL | `/api/v3/fast_scan/{task_id}` | GET | 可用 | 详情:id/runtime_id/progress/total/send/success/failed/status_records 时间线/end_time;状态机 Calculating -> Running -> Sent -> Finished(2026-11-04 九任务实测);顶层 status 翻牌滞后,完成判定看 Finished;API 不回显提交参数(target 仅存本地簿) |
+| QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{runtime_id}` | GET | 可用 | 路径参数是 **runtime_id**(详情端点 data.runtime_id,与 task_id 相邻减一);返回**扫描器风险项**,常规目标(含已收录资产、有洞资产)实测恒空;`?start=&size=` 分页。资产采集结果不走此端点 |
 | CustomScanSubmitURL | `/api/v3/custom_scan` | POST | 需 `front.api.custom_scan` 权限(2026-11-04 实测特权账户也被 q3012 挡) | 自定义扫描:ip_list/domain_list/port/scanner_dict/worker_group 必填,priority 1-3 选填;响应同 fast_scan(task_id 在 message) |
 | CustomScanInfoURL | `/api/v3/custom_scan/{task_id}` | GET | 同上权限(q3012) | 响应形同 fast_scan 详情(status=Finished 表示已完成) |
+
+**扫描产出模型**(2026-11-04 九任务实验钉死):资产采集文档不即时入服务索引,
+经 `task.runtime_id` 检索获取且**延迟较高**(用户确认的业务口径);扫描结果可能
+归名到目标 IP 的既有活跃采集批次(复刻实验:我们扫的 IP 新文档挂原任务主 runtime)。
+result 端点仅为风险项面,常规目标恒空(1.1.1.1/有洞资产/DVR 弱口令设备全测 0)。
 
 **任务列表端点:不存在**(2026-11-04 探测)。fast_scan 与 custom_scan 均只有「新建 + 按 id 查详情/结果」;实测探测过的列表形(fast_scan/list、task_list、history、user/scan_tasks 等)全部 404 或参数错误。「查所有任务」只能靠本地任务簿(scan_tasks 表,scan-ls 命令)。
 | QuakeCompareDocURL | `/api/v3/search/compare/docs` | POST | 可用 | `doc_ids` 至少 3 个;返回多文档字段对比(control.scanner_hostname/service.name/task.* 等) |
 
-## 权限说明
+## 权限说明(统一口径)
 
-compare/scan 族需 `front.api.doc.compare` / `front.api.fast_scan` 权限,vulnerability 索引需漏洞数据角色,未开通时分别报 q3012/q2001。
+| 接口族 | 权限 | 未开通表现 |
+|---|---|---|
+| compare(docs) | `front.api.doc.compare` | q3012 |
+| fast_scan 族 | `front.api.fast_scan` | q3012 |
+| custom_scan 族 | `front.api.custom_scan` | q3012(**特权账户亦无**,2026-11-04 实测) |
+| 漏洞索引(vuln-scroll) | 漏洞数据角色 | q2001 |
+
+当前账户(360_APT_Research 特权)状态:compare 与 fast_scan 可用;custom_scan 被 q3012 挡。
 
 
 ## CVE 详情接口返回结构(实测 CVE-2021-44228)

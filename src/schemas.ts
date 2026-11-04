@@ -28,7 +28,9 @@ export type QuakeEnvelope =
   | { kind: 'ok'; body: Record<string, unknown> }
   | { kind: 'err'; code: string; message: string }
 
-/** 解析信封为判别联合;非对象/缺 code 形视为 ok 透传(历史行为,compare 等端点依赖) */
+/** 解析信封为判别联合。fail-open 范围(明示):非对象(null/字符串/数组)或
+ *  缺 code 键的对象,一律归一为 {kind:'ok'; body:{}}(非透传原文,是空对象),
+ *  compare 等透传端点依赖此行为;有 code 且非 0/'0' 才判 err */
 export function parseEnvelope(body: unknown): QuakeEnvelope {
   if (typeof body !== 'object' || body === null) return { kind: 'ok', body: {} }
   const parsed = ErrEnvelope.safeParse(body)

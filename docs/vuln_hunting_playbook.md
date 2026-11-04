@@ -31,7 +31,7 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 
 1. **免费定形**:`syntax` 查字段可用性 -> `service-agg` 多切面(country/asn/org/port/title/app_version)摸清桶成分与量级,全部零积分
 2. **付费抽样**:桶验明无污染后才 `service-search` 抽 10 条看活体与归档(每条 1 积分)
-3. **归档复用**:抽样自动入库,后续用 `export --sql` 离线分析,不重复花钱
+3. **归档复用**:抽样自动入库,后续用 `export --sql` 离线分析或 `fts` 全文检索(见 [advanced.md](advanced.md) FTS 节),不重复花钱
 
 ## 4. 噪声剔除手法(高价值资产锁定)
 

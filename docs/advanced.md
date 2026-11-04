@@ -4,6 +4,8 @@
 
 ## 环境变量全表
 
+延伸阅读:[数据契约 C0-C4](data_contract_review.md) / [类型系统对照](typed_domain_guide.md)。
+
 | 变量 | 作用 | 默认 |
 |---|---|---|
 | `QUAKE_API_KEY` | API Key(最高优先级) | 无 |
@@ -19,10 +21,10 @@ Key 加载链:进程环境变量 > cwd `.env` > 用户应用数据目录 `.env`(
 | 层 | Windows | Linux | macOS |
 |---|---|---|---|
 | config(.env 回落) | `%APPDATA%\quake-h` | `~/.config/quake-h` | `~/Library/Application Support/quake-h` |
-| data(月库/runs/限流) | `%LOCALAPPDATA%\quake-h` | `~/.local/share/quake-h` | 同左 |
-| cache(raw TTL 缓存) | `%LOCALAPPDATA%\quake-h` | `~/.cache/quake-h` | 同左 |
+| data(月库/runs/限流) | `%LOCALAPPDATA%\quake-h` | `~/.local/share/quake-h` | `~/Library/Application Support/quake-h` |
+| cache(raw TTL 缓存) | `%LOCALAPPDATA%\quake-h` | `~/.cache/quake-h` | `~/Library/Caches/quake-h` |
 
-`QUAKEH_HOME` 设置后三层落其下子目录;旧 `~/.quake-h` 首次启动自动迁移(便携模式跳过)。
+`QUAKEH_HOME` 设置后三层落其下子目录。旧 `~/.quake-h` 迁移:仅迁移 archive.sqlite 与 ratelimit.json(以 archive.sqlite 是否存在判空);当前数据主文件是 runs.sqlite + 月库,**不在此迁移范围**,旧目录里如有月库需手动搬。
 
 Bun 的 `.env` 加载跟 cwd 不跟脚本路径:项目根外跑 `bun /path/src/cli.ts` 读不到项目 `.env`,回项目根或用环境变量。
 
@@ -55,13 +57,17 @@ SQLite 游标逐行喂 hyparquet-writer(fileWriter 1MB 块刷盘),峰值内存�
 ## 长时扫描任务簿
 
 ```sh
-quake-h scan example.com --port-list 80,443   # 提交并登记
-quake-h scan-status <task_id>                 # 查状态,自动刷新任务簿
-quake-h scan-result <task_id>                 # 取结果,回写计数
-quake-h scan-ls [--status Running]            # 本地任务列表
+quake-h scan example.com --port-list 80,443        # query 形提交并登记
+quake-h scan --ip-list 1.1.1.1 --port-list 443     # ip_list 形(域名用 --domain-list)
+quake-h scan-status <task_id>                      # 查状态,自动刷新任务簿(含 runtime_id 回填)
+quake-h scan-result <task_id>                      # 取风险项,只回写计数
+quake-h scan-ls [--refresh] [--from-cache]         # 本地任务列表(唯一「查所有任务」途径)
 ```
 
-实测:fast_scan 的 query 与 port_list 必填,任务 id 在响应 message 字段(24 位 hex)。
+提交形三选一:query(检索语法)/ --ip-list / --domain-list,port_list 必填。
+任务产出:资产文档经 `service-search 'task.runtime_id:"<runtime_id>"'` 检索
+(入服务索引,延迟较高);风险项走 scan-result(常规目标恒空)。
+状态机 Calculating -> Running -> Sent -> Finished,完成判定看 Finished。
 
 ## MCP 接入细节
 

@@ -49,4 +49,4 @@ curl -X POST "https://qiye.quake.360.net/api/v3/search/compare/docs" \
 
 ## 结论
 
-compare/docs 是 Quake 服务数据的多文档对比接口:POST,JSON body 传 `doc_ids`(至少 3 个,值为 `quake_service` 返回的 `id` 字段)。返回多文档字段对比数据(含 control.scanner_hostname/service.name/task.* 等元信息)。实测:无权限账户 q3012(轮次 1)、特权账户 code 0(轮次 2)。doc id 接受 hex / ip_port_transport / host_port_transport 三形(见 data_contract_review.md)。
+compare/docs 是 Quake 服务数据的多文档对比接口:POST,JSON body 传 `doc_ids`(至少 3 个,值为 `quake_service` 返回的 `id` 字段)。返回多文档字段对比数据(含 control.scanner_hostname/service.name/task.* 等元信息)。实测:无权限账户 q3012(轮次 1)、特权账户 code 0(轮次 2)。doc id 三形:本仓 isDocId 守卫接受 hex / ip_port_transport / host_port_transport;compare 服务端仅逐形实测过 ip_port_transport,另两形未在服务端单独验证(见 [data_contract_review.md](data_contract_review.md))。

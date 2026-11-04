@@ -12,7 +12,7 @@ const QUAKE_HOST = process.env.QUAKE_HOST || 'https://qiye.quake.360.net'
 /**
  * Quake API 统一请求:服务端错误(code != 0)抛 IncurError,
  * 由 incur 外层 catch 统一转错误信封;code 保留 Quake 错误码(q2001/q3012 等),
- * hint 即『下一步』提示。
+ * 提示以『下一步:』前缀拼在 message 尾部(IncurError 无独立 hint 字段)。
  */
 async function quakeRequest(
   path: string,
@@ -196,7 +196,7 @@ const stringList = (description: string) =>
     .describe(description)
 
 const cli = Cli.create('quake-h', {
-  version: '0.1.0',
+  version: '0.2.0',
   description: '360 Quake 网络空间测绘 API 客户端(服务查询/主机查询/聚合/CVE 详情/对比/主动扫描)',
   mcp: {
     // 常规直出面:每个命令注册为独立 MCP 工具(带完整 inputSchema),

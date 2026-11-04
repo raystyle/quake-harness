@@ -21,7 +21,7 @@
 **已升级(2026-11-04 落地,commit 6bd49d1)**:
 
 1. ~~ScanStatus 判别联合~~:src/types.ts `scanStatus()`,known 闭集
-   Calculating/Running/Paused/Finished(仅实测+官方钉死;假设词不占位,未知走 unknown 兜底) + {kind:'unknown';raw} 兜底;
+   Calculating/Running/Sent/Finished(状态机四词全实测) + {kind:'unknown';raw} 兜底;
    词表证据见下表。scan-result 不再推导状态(只更新 result_count)。
 2. ~~QuakeEnvelope 判别联合~~:src/schemas.ts `parseEnvelope()` 返回
    {kind:'ok';body}|{kind:'err';code,message},quakeRequest 消费侧 switch 收窄;

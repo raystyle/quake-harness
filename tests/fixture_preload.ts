@@ -23,7 +23,7 @@ function fixtureFor(urlPath: string): unknown {
   if (urlPath.includes('cve/detail')) return FIXTURES.cve
   if (urlPath.includes('similar_icon')) return FIXTURES.icon
   if (urlPath.includes('compare/docs')) return FIXTURES.compare
-  if (urlPath.includes('fast_scan/6ae98')) return FIXTURES.scan_status
+  if (urlPath.includes('fast_scan/6aead05')) return FIXTURES.scan_status
   if (urlPath.includes('filterable/field/quake_service')) return FIXTURES.fields_service
   throw new Error(`fixture missing for ${urlPath}`)
 }

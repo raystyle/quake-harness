@@ -2,6 +2,8 @@
 
 360 Quake 网络空间测绘 API 的 CLI 与 MCP 双形态工具(Bun + incur + zod),命令名 `quake-h`。查询即归档:自动落本地缓存与 SQLite 按月资产库,支持流式 Parquet 导出,自适应限流护航。
 
+**v0.2.0 亮点**:`domain` 域名资产枚举(CDN/蜜罐过滤 + 自动归档)/ `fts` 归档库 FTS5 全文检索(离线零积分)/ `doctor` 环境体检(Key/目录/归档/限流,`--net` 免费探活)。
+
 ## 安装
 
 二进制(无需 Bun):从 [Releases](https://github.com/raystyle/quake-harness/releases) 下载对应平台(linux-x64/arm64/musl、windows-x64/arm64、darwin-x64/arm64,附 sha256),按下面「加入 PATH」部署后即可全局使用 `quake-h`。

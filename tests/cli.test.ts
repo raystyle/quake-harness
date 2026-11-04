@@ -200,6 +200,30 @@ describe('archive 单元', async () => {
     expect(n.months).toBeGreaterThanOrEqual(2)
   })
 
+  test('upsertScanTask 部分更新语义(B05):未传列不抹既有值', async () => {
+    const { upsertScanTask, getDb } = await import('../src/archive')
+    const db = getDb()
+    const tid = '6aeab937b133c179e4386e3c' as import('../src/types').TaskId
+    // 全量登记
+    upsertScanTask(db, { taskId: tid, target: 'query:ip:1.1.1.1', portList: '443', status: 'Sent', progress: 0, total: 1, runtimeId: '6aeab937b133c179e4386e3b' })
+    // scan-result 形:只传计数(status 空串)
+    upsertScanTask(db, { taskId: tid, status: '', resultCount: 5 })
+    let row: any = db.query('SELECT target, port_list, status, progress, total, result_count, runtime_id FROM scan_tasks WHERE task_id = ?').get(tid)
+    expect(row.target).toBe('query:ip:1.1.1.1')       // 未传不抹
+    expect(row.port_list).toBe('443')
+    expect(row.status).toBe('Sent')                    // 空串不改状态
+    expect(row.progress).toBe(0)                       // 未传不重置
+    expect(row.result_count).toBe(5)                   // 显式传值覆盖
+    expect(row.runtime_id).toBe('6aeab937b133c179e4386e3b')
+    // scan-status 形:状态刷新,不传 target/resultCount
+    upsertScanTask(db, { taskId: tid, status: 'Finished', progress: 1, total: 1, send: 1, success: 1, runtimeId: '6aeab937b133c179e4386e3b' })
+    row = db.query('SELECT target, status, result_count, runtime_id FROM scan_tasks WHERE task_id = ?').get(tid)
+    expect(row.target).toBe('query:ip:1.1.1.1')        // 详情无 target 回显,簿内值保持
+    expect(row.status).toBe('Finished')
+    expect(row.result_count).toBe(5)                   // 未传不抹
+    expect(row.runtime_id).toBe('6aeab937b133c179e4386e3b')
+  })
+
   test('recordRun 记录断点与总数', () => {
     const db = getDb()
     recordRun(db, { method: 'scroll', query: 'service: http', cacheKey: 'k', total: 100, count: 10, paginationId: 'pid1', rawPath: '/x' })

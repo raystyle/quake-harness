@@ -72,7 +72,12 @@ jobs:
         run: bun build --compile --minify --sourcemap --target=${{ matrix.target }} src/cli.ts --outfile dist/${{ matrix.asset }}${{ matrix.ext }}
       - name: Smoke test binary
         if: matrix.target != 'bun-linux-arm64' && matrix.target != 'bun-linux-x64-musl' && matrix.target != 'bun-windows-arm64'
-        run: dist/${{ matrix.asset }}${{ matrix.ext }} --version && dist/${{ matrix.asset }}${{ matrix.ext }} syntax tls
+        run: |
+          set -e
+          V=$(dist/${{ matrix.asset }}${{ matrix.ext }} --version)
+          echo "binary version: $V, tag: ${GITHUB_REF_NAME#v}"
+          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "VERSION MISMATCH: binary=$V tag=$GITHUB_REF_NAME"; exit 1; }
+          dist/${{ matrix.asset }}${{ matrix.ext }} syntax tls
         shell: bash
       - name: Upload artifact
         uses: actions/upload-artifact@v4

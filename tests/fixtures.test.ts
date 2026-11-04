@@ -141,10 +141,12 @@ describe('全端点 fixture 回归(真实付费响应,离线 mock)', () => {
   })
 
   test('scan-status: 任务状态刷新', async () => {
-    const { out, exit } = await run(['scan-status', '6ae98749c9fb70b9060a9408'])
+    const { out, exit } = await run(['scan-status', '6aead05b701f0f2b355dcb78'])
     expect(exit).toBe(0)
-    expect(out.id).toBe('6ae98749c9fb70b9060a9408')
+    expect(out.id).toBe('6aead05b701f0f2b355dcb78')
+    expect(out.status).toBe('Finished')               // fixture 为真实四态时间线样本
     expect(typeof out.progress).toBe('number')
+    expect(out.runtime_id).toBe('6aead05b701f0f2b355dcb77')
   })
 
   test('service-search 二段: 缓存命中不重复归档', async () => {

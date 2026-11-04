@@ -104,14 +104,15 @@ export function isIpCidr(v: string): v is IpCidr {
 
 // ---------------------------------------------------------------------------
 // 扫描任务状态:实测词表 + 未知值兜底联合
-// 实测来源:scan-status 直查(Running/Paused)、status_records 时间线(Calculating)、
-// scan-result 结果非空(Finish 路径)、代码登记(Running)。词表未穷尽,
-// 新词表以 kind:'unknown' 兜底,不经 any 丢类型
+// 实测来源(2026-11-04,9 任务跟踪):状态机全链
+//   Calculating(配置加载) -> Running(开始分发) -> Sent(分发完成) -> Finished(扫描完成)
+// 均自 status_records 时间线与顶层 status 直查。未观测词(含 Paused,仅 2026-11-03
+// 单次观测;Stop/Fail 从未观测)一律走 kind:'unknown' 兜底不丢原文,实测到再升级。
+// 本地词(非服务端):Unknown(缺 status 字段兜底)、Recovered(缓存找回登记)
 // ---------------------------------------------------------------------------
 
-/** 实测/官方文档钉死的扫描任务状态闭集;未观测到的状态走 unknown 兜底,
- *  不预置假设词(官方文档:Finished 表示已完成) */
-export type ScanStatusKnown = 'Calculating' | 'Running' | 'Paused' | 'Finished'
+/** 实测钉死的扫描状态机四词;未观测词走 unknown 兜底,不预置假设 */
+export type ScanStatusKnown = 'Calculating' | 'Running' | 'Sent' | 'Finished'
 
 /** 扫描状态:已知词表或未知原文(可辨识联合,消费侧 switch 穷尽) */
 export type ScanStatus =
@@ -120,7 +121,7 @@ export type ScanStatus =
 
 /** ScanStatus 守卫与构造:唯一入口,未知值(含未观测的 Stop/Fail 等假设词)落 unknown 不丢信息 */
 export function scanStatus(raw: string): ScanStatus {
-  const KNOWN: readonly ScanStatusKnown[] = ['Calculating', 'Running', 'Paused', 'Finished']
+  const KNOWN: readonly ScanStatusKnown[] = ['Calculating', 'Running', 'Sent', 'Finished']
   return KNOWN.includes(raw as ScanStatusKnown)
     ? { kind: 'known', status: raw as ScanStatusKnown }
     : { kind: 'unknown', raw }
@@ -139,9 +140,11 @@ export function validSize(size: number, max = API_SIZE_MAX): boolean {
   return Number.isInteger(size) && size >= 1 && size <= max
 }
 
-/** Quake 检索语法轻量平衡校验:引号配对(引号外的括号才计数)。
- *  不校验语义,只拦手滑(未闭合引号/括号会 t6003 烧一次网络往返);
- *  引号内的括号不参与计数,避免误伤含括号的短语 */
+/** Quake 检索语法轻量平衡校验:双引号配对(引号外的圆括号才计数)。
+ *  边界(取舍明示):只认 ASCII 双引号 " 与圆括号 (),单引号/方括号/花括号
+ *  不参与;不识别转义(串内 \" 会被当闭引号,可能误拒含转义引号的查询,
+ *  误拒优先于误放行);空串视为平衡。命中未闭合即本地 USAGE 拦截,
+ *  免一次 t6003 网络往返;语义校验仍在服务端 */
 export function isBalancedQuery(q: string): boolean {
   let inQuote = false
   let depth = 0
