@@ -84,7 +84,7 @@ describe('全端点 fixture 回归(真实付费响应,离线 mock)', () => {
     expect(out.pagination_id).toBeTruthy()
   })
 
-  test('host-agg: 免费聚合', async () => {
+  test('host-agg: 聚合形(按桶计费,fixture 下零网络)', async () => {
     const { out, exit } = await run(['host-agg', 'country:"中国"', '--by', 'service', '--size', '2'])
     expect(exit).toBe(0)
     expect(Object.keys(out.aggregations).length).toBeGreaterThan(0)
