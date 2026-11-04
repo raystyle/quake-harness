@@ -21,7 +21,7 @@
 **已升级(2026-11-04 落地,commit 6bd49d1)**:
 
 1. ~~ScanStatus 判别联合~~:src/types.ts `scanStatus()`,known 闭集
-   Calculating/Running/Paused/Finished/Stop/Fail + {kind:'unknown';raw} 兜底;
+   Calculating/Running/Paused/Finished(仅实测+官方钉死;假设词不占位,未知走 unknown 兜底) + {kind:'unknown';raw} 兜底;
    词表证据见下表。scan-result 不再推导状态(只更新 result_count)。
 2. ~~QuakeEnvelope 判别联合~~:src/schemas.ts `parseEnvelope()` 返回
    {kind:'ok';body}|{kind:'err';code,message},quakeRequest 消费侧 switch 收窄;
@@ -36,7 +36,7 @@
 | Running | scan-status 顶层 status(任务 6ae98749…/6aea9f2f…) | 实测直查 |
 | Paused | scan-status 顶层 status(任务 6ae98749…) | 实测直查 |
 | Finished | 官方 API 文档明示「Finished 表示已完成」(fast_scan/custom_scan 详情响应注释) | 官方文档 |
-| Stop/Fail | 未观测到,按状态命名惯例预置 | 假设(待实测确认) |
+| 其他词(Stop/Fail 等) | 不预置假设词;未观测到的状态一律落 {kind:'unknown';raw} 兜底,实测到再升级 known | 设计裁定(用户 2026-11-04) |
 | Unknown | 本地兜底词(scan-status 缺 status 字段时构造),非服务端词 | 代码定义 |
 
 doctor 检查项维持半可辨识(status 判别键 + 统一 detail 形),完全联合收益低暂不升级。

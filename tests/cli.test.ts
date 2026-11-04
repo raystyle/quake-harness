@@ -553,11 +553,10 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(exit).toBe(0)
     expect(out.recovered).toBeGreaterThanOrEqual(1)
     expect(out.tasks.some((t: any) => t.task_id === orphan && t.status === 'Recovered')).toBe(true)
-    // 清理假行(缓存文件留在受控 home,随 teardown 删除)
-    const { Database } = await import('bun:sqlite')
-    const db = new Database(join(home, 'runs.sqlite'))
-    db.query('DELETE FROM scan_tasks WHERE task_id = ?').run(orphan)
-    db.close()
+    // 清理假行(缓存文件留在受控 home,随 teardown 删除);库由子进程 CLI 建好后
+    // 同进程经 getDb 单例打开(直接 new Database 会碰上表未建时序)
+    const { getDb } = await import('../src/archive')
+    getDb().query('DELETE FROM scan_tasks WHERE task_id = ?').run(orphan)
   })
 
   nt('doctor --net: 免费探活', async () => {
