@@ -35,7 +35,8 @@ quake-h fts 'body:phpinfo' --month 2026-11   # 定向单月库
 ## 3. 检索语义
 
 - **语法**:FTS5 MATCH 表达式全支持:裸词(全列 OR)、列限定(`title:b374k`)、短语(引号防分词,**值含点号必须引号**:`host:"qq.com"`,裸写 `host:qq.com` 报 fts5 syntax error)、布尔(AND/OR/NOT)、前缀(`web*`)
-- **跨月**:按月库升序逐库 MATCH,凑满 `--size`(默认 20)即止;**非 SQL UNION**(顺序聚合,各库内无全局排序)
+- **跨月**:按月库升序逐库 MATCH,凑满 `--size`(默认 20)即止;**应用层循环聚合,非 SQL UNION**。
+  取舍:无全局 bm25 排序(结果按月库序 + 库内序,不是相关性全局排),换来「新数据优先场景只碰最近一两个库」的短路;对比 export --sql 走 ATTACH + UNION ALL 子查询(单连接 SQL 联合,ORDER BY 全局有效)
 - **返回**:命中行带 `month`(来源月库)/ doc_id / ip / port / title / snippet(命中列高亮,`[词]` 标记)
 - **过滤**:空文本占位行(FTS 四列全空的资产,如非 http 服务)不返回
 
