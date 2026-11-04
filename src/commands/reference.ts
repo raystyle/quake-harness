@@ -1,5 +1,6 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
+import { isFaviconHash } from '../types'
 
 /** 字段参考与 favicon 相似度族:fields / icon */
 export function registerReferenceCommands(cli: QuakeCli): void {
@@ -45,6 +46,14 @@ export function registerReferenceCommands(cli: QuakeCli): void {
     examples: [{ args: { faviconHash: '827fd6c561d4b1f932f75e0f9a17f766' }, description: '找同 favicon 资产' }],
     async run(c) {
       const token = pickToken(c)
+      // md5 守卫:非法 hash 本地拦截,不打网络不落 query_runs
+      if (!isFaviconHash(c.args.faviconHash)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'faviconHash 须为 32 位 md5 hex,如 827fd6c561d4b1f932f75e0f9a17f766',
+          retryable: false,
+        })
+      }
       const body = {
         favicon_hash: c.args.faviconHash,
         similar: c.options.similar,

@@ -492,6 +492,33 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     }
   })
 
+  test('业务输入守卫族:非法形本地拦截,不落网络(离线)', async () => {
+    // cve 编号
+    const cve = await run(['cve', 'not-a-cve'])
+    expect(cve.exit).toBe(1)
+    expect(cve.out.code).toBe('USAGE')
+    // favicon md5
+    const icon = await run(['icon', 'zzz-not-md5'])
+    expect(icon.exit).toBe(1)
+    expect(icon.out.code).toBe('USAGE')
+    // host-honeypot ip/cidr
+    const hp = await run(['host-honeypot', '1.2.3.4.5.6'])
+    expect(hp.exit).toBe(1)
+    expect(hp.out.code).toBe('USAGE')
+    // compare doc id
+    const cmp = await run(['compare', 'bad-id', 'x2', 'y3'])
+    expect(cmp.exit).toBe(1)
+    expect(cmp.out.code).toBe('USAGE')
+    // scan 任务 id
+    const st = await run(['scan-status', 'abc'])
+    expect(st.exit).toBe(1)
+    expect(st.out.code).toBe('USAGE')
+    // size 上限(积分事故防线)
+    const big = await run(['service-search', 'service: http', '--size', '500000'])
+    expect(big.exit).toBe(1)
+    expect(big.out.code).toBe('USAGE')
+  })
+
   nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {
     // scan-status 查任意 id(即使无效)先保证表存在;再看 scan-ls 信封
     const { out, exit } = await run(['scan-ls'])

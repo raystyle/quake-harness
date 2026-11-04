@@ -1,6 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, saveAgg } from '../archive'
+import { isIpCidr, API_SIZE_MAX } from '../types'
 
 /** 主机数据族:host-search / host-scroll / host-agg / host-honeypot */
 
@@ -59,6 +60,14 @@ export function registerHostCommands(cli: QuakeCli): void {
     async run(c) {
       const token = pickToken(c)
       const o = c.options
+      // 积分事故防线:每 IP 扣 1 积分,入口拦超限
+      if (o.size > API_SIZE_MAX) {
+        return c.error({
+          code: 'USAGE',
+          message: `size 上限 ${API_SIZE_MAX}(每条结果扣 1 积分;批量拉取走 host-scroll)`,
+          retryable: false,
+        })
+      }
       const body: Record<string, unknown> = {
         query: c.args.query,
         start: o.start,
@@ -207,6 +216,14 @@ export function registerHostCommands(cli: QuakeCli): void {
     examples: [{ args: { ip: '1.1.1.1' }, description: '查单 IP 服务指纹' }],
     async run(c) {
       const token = pickToken(c)
+      // IP/CIDR 守卫:非法形本地拦截,不落服务端 t6003
+      if (!isIpCidr(c.args.ip)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'ip 须为 IPv4 或 CIDR 形,如 1.1.1.1 或 10.0.0.0/8',
+          retryable: false,
+        })
+      }
       const body = { query: `ip:"${c.args.ip}"`, start: 0, size: 1, ignore_cache: false }
       const { json } = await cachedQuake('host_search', c.args.ip, body, token, {
         method: 'POST',

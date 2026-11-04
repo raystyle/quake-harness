@@ -254,37 +254,14 @@ export 把用户 SQL 里 `FROM assets` 重写为跨月 UNION ALL 子查询(附 `
 | L3 归档 | AssetRow 等四 interface + DDL | 无 | DDL 即契约,raw_json 兜底无损 |
 | L4 导出 | SQL 结果集 | 无(SQLite 自身类型) | month 注入是唯一改写 |
 
-建议(按性价比排序):
+建议(按性价比排序;1-3 已落地,标记状态):
 
-1. **标识符品牌类型化**(最高优先,本仓已有实际交叉污染风险):`doc_id` 与 `task_id` 同为 24 位 hex、`cache_key` 与普通字符串同形,裸 `string` 下 `compare` 收到 taskId、`scan-status` 收到 docId 编译器全不吭声。集中建 `src/types.ts`:
-
-   ```ts
-   declare const brand: unique symbol
-   type Brand<T, B extends string> = T & { readonly [brand]: B }
-
-   export type DocId = Brand<string, 'DocId'>            // 服务文档 id:24 位 hex
-   export type TaskId = Brand<string, 'TaskId'>          // 主动扫描任务 id:24 位 hex
-   export type CacheKey = Brand<string, 'CacheKey'>      // cacheKey() 产物:md5
-   export type Month = Brand<string, 'Month'>            // 'YYYY-MM',dataMonth() 产物
-
-   // 伴生守卫 = 构造唯一入口(守卫即校验)
-   export function isDocId(v: string): v is DocId {
-     return /^[0-9a-f]{24}$/.test(v)
-   }
-   export function isMonth(v: string): v is Month {
-     return /^\d{4}-(0[1-9]|1[0-2])$/.test(v)
-   }
-   ```
-
-   边界策略:API 入口(args)仍是裸 string,经守卫窄化后进 Brand 域;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`cachedQuake` 返回的 `cacheKeyStr` 全部改 Brand 类型,传错同类字符串即刻编译失败。闭集用字面量联合:`type Transport = 'tcp' | 'udp'`、`type RawMethod = 'search' | 'scroll' | 'agg' | 'host_search' | ...`(TTL_HOURS 的键集)。
-
-2. **给查询族补 zod output schema**(service-search/scroll/agg、host 族、vuln-scroll、domain):incur 的 output schema 同时约束 `--json` 与 MCP 工具面(23 工具直出后 schema 即工具输出契约),一次性把 L2 空档补掉;工作量约每命令一个 z.object。zod schema 与品牌类型互补:zod 守运行时边界(API 响应),Brand 守编译期数据流(内部传递)。
-
-3. **QuakeServiceDoc/QuakeHostDoc 落成正式 interface** 放 src/types.ts:现在散在各命令的 `as { ... }` 内联形状重复且漂移;集中定义后 toAssetRow/hostRow 有唯一事实源,hostname 双态(服务文档 string / 主机文档 string[])在类型上显式表达而非运行时分支兜底。
-
+1. ~~**标识符品牌类型化**~~ **已落地**(src/types.ts):`DocId/TaskId/CacheKey/Month/DomainName/CveId/FaviconHash/IpCidr` 八品牌 + 伴生守卫;`AssetRow.doc_id`、`ScanTaskRecord.taskId`、`dataMonth` 全链 Brand;闭集 `Transport/RawMethod` 字面量联合。实测收益:scan-status 传非法 id 现在入口 USAGE 快速失败,不再落服务端;domain 语法注入(`evil.cn OR service:telnet`)入口即拦。
+2. **给查询族补 zod output schema**:已落地 4/24(user/doctor/fts/domain 未全);剩余 service-search/scroll/agg、host 族、vuln-scroll、compare、scan 族是 L2 空档,incur output schema 同时约束 `--json` 与 MCP 工具面,补齐后一次性闭环。
+3. ~~**QuakeServiceDoc/QuakeHostDoc 集中 interface**~~ **已落地**(src/types.ts),hostname 双态类型显式。
 4. **CacheEntry.body 收紧为 QuakeEnvelope**:`body: unknown` 至少改为 `{ code: unknown; message: unknown; data: unknown; meta?: unknown }`,信封形状变更时回放层可给出明确错误而非静默降级。
-
-5. 低优先:raw 落盘加 schema_version 字段(Envelope 内已可从 body 形状探测,暂无实际翻车案例)。
+5. **积分事故防线**(本轮新增,已落地):service-search/host-search size 上限 500(API_SIZE_MAX)入口拦截;domain 上限 100(官方同款)。
+6. 低优先:raw 落盘加 schema_version 字段(Envelope 内已可从 body 形状探测,暂无实际翻车案例)。
 
 ## 7. 样本来源 [实测]
 

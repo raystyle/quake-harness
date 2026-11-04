@@ -56,6 +56,37 @@ export function isDomainName(v: string): v is DomainName {
   return parts.length >= 2 && parts.every((p) => label.test(p))
 }
 
+/** CVE 编号(业务输入):CVE-YYYY-NNNN 形 */
+export type CveId = Brand<string, 'CveId'>
+
+/** CVE 守卫:CVE-年份-序号(序号 4 位起,实测库内均为 4+ 位) */
+export function isCveId(v: string): v is CveId {
+  return /^CVE-\d{4}-\d{4,}$/.test(v)
+}
+
+/** favicon md5(业务输入):icon 命令的检索键 */
+export type FaviconHash = Brand<string, 'FaviconHash'>
+
+/** favicon md5 守卫:32 位 hex */
+export function isFaviconHash(v: string): v is FaviconHash {
+  return /^[0-9a-f]{32}$/.test(v)
+}
+
+/** IPv4 / CIDR(业务输入):host-honeypot 的 ip 参数 */
+export type IpCidr = Brand<string, 'IpCidr'>
+
+/** IPv4 / CIDR 守卫:单 IP 或 /0-/32 前缀 */
+export function isIpCidr(v: string): v is IpCidr {
+  const m = /^(\d{1,3}(?:\.\d{1,3}){3})(?:\/(\d{1,2}))?$/.exec(v)
+  if (!m) return false
+  const octets = m[1]!.split('.').map(Number)
+  if (!octets.every((o) => o <= 255)) return false
+  return m[2] === undefined || Number(m[2]) <= 32
+}
+
+/** API size 上限(实测 search/scroll/host 族 API 上限 500;入口守卫防积分事故) */
+export const API_SIZE_MAX = 500
+
 /** CacheKey 守卫:32 位小写 hex(md5) */
 export function isCacheKey(v: string): v is CacheKey {
   return /^[0-9a-f]{32}$/.test(v)

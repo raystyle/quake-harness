@@ -1,5 +1,6 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
+import { isCveId } from '../types'
 
 /** 漏洞库族:cve */
 export function registerCveCommands(cli: QuakeCli): void {
@@ -15,6 +16,14 @@ export function registerCveCommands(cli: QuakeCli): void {
     examples: [{ args: { cveId: 'CVE-2021-44228' }, description: '查 Log4Shell 详情' }],
     async run(c) {
       const token = pickToken(c)
+      // CVE 编号守卫:格式错直接 USAGE,不落到服务端 NOT_FOUND
+      if (!isCveId(c.args.cveId)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'cveId 须为 CVE-YYYY-NNNN 形,如 CVE-2021-44228',
+          retryable: false,
+        })
+      }
       const { json, cacheHit } = await cachedQuake(
         'cve',
         c.args.cveId,

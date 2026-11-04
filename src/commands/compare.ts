@@ -1,5 +1,6 @@
 import { z } from 'incur'
 import { quakeRequest, pickToken, type QuakeCli } from '../quake'
+import { isDocId } from '../types'
 
 /** 多文档对比族:compare */
 export function registerCompareCommands(cli: QuakeCli): void {
@@ -16,6 +17,15 @@ export function registerCompareCommands(cli: QuakeCli): void {
     ],
     async run(c) {
       const token = pickToken(c)
+      // doc id 守卫:非法 id 本地拦截,不落服务端 q2001
+      const bad = c.args.docIds.filter((d) => !isDocId(d))
+      if (bad.length > 0) {
+        return c.error({
+          code: 'USAGE',
+          message: `doc id 须为 24 位 hex 或 ip_port_transport 形,无效输入: ${bad[0]!.slice(0, 40)}`,
+          retryable: false,
+        })
+      }
       const json = (await quakeRequest('/api/v3/search/compare/docs', token, {
         method: 'POST',
         body: { doc_ids: c.args.docIds },

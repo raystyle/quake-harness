@@ -1,6 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
 import { getDb, upsertAssets, saveAgg } from '../archive'
+import { API_SIZE_MAX } from '../types'
 
 /** 服务数据查询族:search / scroll / agg */
 
@@ -35,6 +36,14 @@ export function registerServiceCommands(cli: QuakeCli): void {
     async run(c) {
       const token = pickToken(c)
       const o = c.options
+      // 积分事故防线:size 每条 1 积分,入口拦下超限请求
+      if (o.size > API_SIZE_MAX) {
+        return c.error({
+          code: 'USAGE',
+          message: `size 上限 ${API_SIZE_MAX}(每条结果扣 1 积分;批量拉取走 service-scroll)`,
+          retryable: false,
+        })
+      }
       const body: Record<string, unknown> = {
         query: c.args.query,
         start: o.start,
