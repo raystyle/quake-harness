@@ -1,5 +1,7 @@
 import { z } from 'incur'
-import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
+import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
+import { getDb, upsertAssets } from '../archive'
+import { isDomainName, type DomainName } from '../types'
 
 /**
  * 域名族:domain(对齐官方 Rust CLI quake_rs 的 domain 子命令语义)
@@ -49,7 +51,16 @@ export function registerDomainCommands(cli: QuakeCli): void {
           retryable: false,
         })
       }
-      const query = `domain:*.${c.args.domainName}`
+      // 域名守卫:纯域名形校验,同时拦截查询语法注入(OR/冒号等会改变查询语义)
+      if (!isDomainName(c.args.domainName)) {
+        return c.error({
+          code: 'USAGE',
+          message: 'domainName 须为纯域名(如 qq.com),不支持查询语法拼接',
+          retryable: false,
+        })
+      }
+      const domain = c.args.domainName as DomainName
+      const query = `domain:*.${domain}`
       const shortcuts: string[] = []
       if (o.noCdn) shortcuts.push(SHORTCUTS.cdn)
       if (o.noHoneypot) shortcuts.push(SHORTCUTS.honeypot)
@@ -77,10 +88,13 @@ export function registerDomainCommands(cli: QuakeCli): void {
       )
       const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
       const items = typed.data ?? []
+      // 与 service-search 同契约:命中即归档(缓存命中不重复扣行)
+      const archived = cacheHit ? 0 : upsertAssets(getDb(), items.map(toAssetRow))
       return {
         total: typed.meta?.pagination?.total ?? null,
         count: items.length,
         cache_hit: cacheHit,
+        archived,
         cache_key: cacheKeyStr,
         raw_path: rawPath ?? null,
         docs: items.map((it) => {
@@ -101,6 +115,7 @@ export function registerDomainCommands(cli: QuakeCli): void {
           commands: [
             { command: 'service-scroll', args: { query }, description: '深度翻页拉取更多' },
             { command: 'service-agg', args: { query }, description: '聚合统计分布(免费)' },
+            { command: 'fts', args: { match: `host:"${domain}"` }, description: '归档全文检索该域名' },
           ],
         },
       }

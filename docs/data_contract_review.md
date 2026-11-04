@@ -227,10 +227,16 @@ UPSERT 语义:同 doc_id 重查只推进 last_seen,不覆盖既有投影(幂等)
 |---|---|---|
 | 服务文档 | `doc_id`(PK) | 同一端点多 vhost 即多行:81.70.185.165:8144 四行(s2.bytebytego.cn/allyworld.cn/lxgj/lingxiang 四个 vhost) |
 | 资产端点 | `(ip, port, transport)` 业务复合键 | 全库 45 文档行 vs 38 端点:按 doc_id 数资产高估 18% |
+| 域名资产 | `(domain, ip, port)`(domain 命令业务视角;经 doc_id 归档进 assets) | 实测 qq.com 查询即归档,`fts 'host:"qq.com"'` 立即可检 |
 | 主机 | `ip`(host 文档 id 即 ip) | — |
 | 扫描任务 | `task_id`(PK) | — |
 
 结论:**doc_id 是文档去重键,不是资产数**。`export --sql` 统计资产量必须 `COUNT(DISTINCT ip || ':' || port)`,数文档行数只是「观测到的文档面」。类型层:`AssetKey` interface 表达端点身份三件套,`DocId` 注释明示非端点键。[实测+代码]
+
+**domain 命令业务契约**(三件齐):
+- 输入契约:`DomainName` 品牌类型 + `isDomainName` 守卫(纯域名形校验)。该守卫同时是 **Quake 语法注入防线** —— domain 以 `domain:*.<输入>` 直拼查询,`evil.cn OR service:telnet` 类输入会改变查询语义,入口即拦(USAGE)。[代码+实测]
+- 数据契约:与 service-search 同链路,命中即归档(`archived` 字段 + assets 月库 + FTS 同步);缓存命中不重复扣行。[代码]
+- 输出契约:docs[] {domain,title,ip,port,time} + archived + CTA(host 短语 fts 检索)。[代码]
 
 **投影损失清单**(assets 可 SQL 直查列 vs raw_json):丢 asn/org/province/city/isp/scene/title/body/response 等;`raw_json` 全在,`export --sql` 可 `json_extract(raw_json, '$.service.http.title')` 补救。[实测+代码]
 

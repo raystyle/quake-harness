@@ -484,6 +484,14 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(out.code).toBe('USAGE')
   })
 
+  test('domain: 语法注入与非法域名守卫(离线,不落网络)', async () => {
+    for (const bad of ['evil.cn OR service:telnet', 'qq.com:9200', 'notadomain']) {
+      const { out, exit } = await run(['domain', bad, '--size', '1'])
+      expect(exit).toBe(1)
+      expect(out.code).toBe('USAGE')
+    }
+  })
+
   nt('scan-ls: 任务簿记可查(scan-status 刷新后)', async () => {
     // scan-status 查任意 id(即使无效)先保证表存在;再看 scan-ls 信封
     const { out, exit } = await run(['scan-ls'])

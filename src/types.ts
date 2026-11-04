@@ -40,6 +40,22 @@ export function isTaskId(v: string): v is TaskId {
   return /^[0-9a-f]{24}$/.test(v)
 }
 
+/**
+ * 域名(业务输入):标识一个DNS域。
+ * 守卫校验纯域名形(RFC 1035 简化:字母数字连字符段 + 点分层级,总长 <= 253)。
+ * 该守卫同时是 Quake 语法注入防线——domain 命令以 `domain:*.<输入>` 直拼查询,
+ * 传入 `evil.cn OR service:telnet` 这类串会改变查询语义,必须在入口拦截。
+ */
+export type DomainName = Brand<string, 'DomainName'>
+
+/** 域名守卫:纯域名形校验(同时防查询语法注入) */
+export function isDomainName(v: string): v is DomainName {
+  if (v.length > 253 || v.length === 0) return false
+  const label = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/
+  const parts = v.split('.')
+  return parts.length >= 2 && parts.every((p) => label.test(p))
+}
+
 /** CacheKey 守卫:32 位小写 hex(md5) */
 export function isCacheKey(v: string): v is CacheKey {
   return /^[0-9a-f]{32}$/.test(v)
