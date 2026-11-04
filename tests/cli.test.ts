@@ -608,6 +608,17 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(filtered.out.total).toBeLessThan(out.total)
   }, 90000)
 
+  test('latest 旗标写法回归(H1):--no-latest 生效,--latest false 不生效', async () => {
+    // 实测坑:--latest false 传的是字符串 false,zod boolean 不收,实际仍为默认 true;
+    // 正确写法 --no-latest / --latest=false。文档统一 --no-latest。
+    const off = await run(['service-search', 'service: http', '--no-latest', '--size', '1'])
+    expect(off.exit).toBe(0)
+    expect(off.out.latest_note).toContain('全部历史观测')
+    const badSyntax = await run(['service-search', 'service: http', '--latest', 'false', '--size', '1'])
+    expect(badSyntax.exit).toBe(0)
+    expect(badSyntax.out.latest_note).toContain('最新一次观测')  // 字符串写法仍是 true 口径
+  }, 90000)
+
   test('domain: 同参数二跑命中缓存(时间窗取整到天,cache_key 稳定)', async () => {
     // 回归:时间窗曾精确到秒,cache_key 每次都变,同参重复查询永远 miss(实扣积分)
     // 时限 90s:首查打网络,连续冒烟下可能叠加限流静默等待

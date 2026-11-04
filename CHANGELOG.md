@@ -1,5 +1,14 @@
 # Changelog
 
+## 未发布(2026-11-04 review 修复)
+
+- 聚合计费实测纠正:聚合会扣长效积分(与 size 正相关,单账户四次对照 1/3/5 扣 1/3/5);全仓 12 处「聚合免费」表述已改,措辞按证据边界收敛(未测多 facet/不足 size,非官方承诺)
+- latest 输出面:service-search 返回 latest_note 口径注记;--latest false 字符串写法实测不生效(zod boolean 不收),文档统一 --no-latest;对比 CTA 沿用原查询过滤条件
+- output schema 补声明:latest_note 与 CTA(service-search 存量 CTA 一并),MCP tools/call 不再 Output validation error(回归入档)
+- fields CTA 按 dataset 分流(host 系走 host-agg,原固定 service-agg 跳错数据面)
+- doctor --net 与积分类 CTA 统一长效积分口径(persistent_credit;原月度口径在特权账户恒 0 误导)
+
+
 ## v0.2.1(2026-11-04)
 
 ### 修复

@@ -24,7 +24,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
       rule: z.string().optional().describe('服务端 IP 列表收藏名称(rule 与 ip_list 二选一)'),
       ipList: stringList('IP 列表,逗号分隔(与 rule 二选一)').optional(),
       shortcuts: stringList('Web 过滤器 id(过滤无效请求/排除蜜罐/排除CDN),值从 web url 获取').optional(),
-      latest: z.boolean().default(true).describe('true=每资产仅最新一次观测(默认,量小);false=全部历史观测(同资产多行,total 数倍,host 族慎用,多行重复计费)'),
+      latest: z.boolean().default(true).describe('true=每资产仅最新一次观测(默认,量小);false=全部历史观测(同资产多行,total 数倍;关闭用 --no-latest)'),
       ignoreCache: z.boolean().default(false).describe('忽略缓存取最新'),
       startTime: z.string().optional().describe('起始时间,格式 2020-10-14 00:00:00,UTC'),
       endTime: z.string().optional().describe('截止时间,同上'),
@@ -37,6 +37,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
       archived: z.number(),
       cache_key: z.string(),
       raw_path: z.string().nullable(),
+      latest_note: z.string().describe('total 口径:true=每资产最新观测去重量,false=全部历史多行'),
       docs: z.array(z.object({
         id: z.string(),
         ip: z.string(),
@@ -126,7 +127,20 @@ export function registerServiceCommands(cli: QuakeCli): void {
             { command: 'service-agg', args: { query: c.args.query }, description: '聚合统计分布' },
             ...(o.latest
               ? []
-              : [{ command: 'service-search', args: { query: c.args.query }, options: { latest: true, size: 1 }, description: '对比最新观测口径的 total' }]),
+              : [{
+                  command: 'service-search',
+                  args: { query: c.args.query },
+                  options: {
+                    latest: true, size: 1,
+                    // 沿用原查询的过滤条件,保证两次 total 可比
+                    ...(o.rule ? { rule: o.rule } : {}),
+                    ...(o.ipList?.length ? { ipList: o.ipList } : {}),
+                    ...(o.shortcuts?.length ? { shortcuts: o.shortcuts } : {}),
+                    ...(o.startTime ? { startTime: o.startTime } : {}),
+                    ...(o.endTime ? { endTime: o.endTime } : {}),
+                  },
+                  description: '对比最新观测口径的 total',
+                }]),
           ],
         },
       }
@@ -229,7 +243,7 @@ export function registerServiceCommands(cli: QuakeCli): void {
   })
 
   cli.command('service-agg', {
-    description: '服务数据聚合统计(最多 2 字段;按 size 计费,1 桶 1 长效积分)',
+    description: '服务数据聚合统计(最多 2 字段;聚合会扣长效积分,小 size 控成本)',
     args: z.object({
       query: z.string().describe('Quake 检索语法'),
     }),

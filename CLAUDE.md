@@ -43,4 +43,4 @@ bun src/cli.ts doctor           # 环境体检(离线;--net 免费探活)
 
 - `docs/quake_api_notes.md`:全部接口状态总表、CVE 详情返回结构、接口权限说明(compare/scan 族需 front.api.doc.compare / front.api.fast_scan,漏洞索引需漏洞数据角色)。
 - `docs/compare_docs_api_notes.md`:compare/docs 参数规则与错误码轨迹(doc_ids 至少 3 个,格式 ip_port_transport)。
-- `docs/vuln_hunting_playbook.md`:漏洞资产测绘搜索分析经验(L0-L3 分层确证、语法坑、先免费后付费工作流、噪声剔除)。
+- `docs/vuln_hunting_playbook.md`:漏洞资产测绘搜索分析经验(L0-L3 分层确证、语法坑、低成本定形付费抽样工作流、噪声剔除)。

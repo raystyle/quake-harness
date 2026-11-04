@@ -10,14 +10,10 @@
 |---|---|---|---|---|
 | QuakeSearchURL | `/api/v3/search/quake_service` | POST | 可用 | 实测 3 条扣 3 积分,doc id 三形(hex/ip_port_transport/host_port_transport) |
 
-**latest 参数语义(2026-11-04 实测,qq.com 对照)**:`latest=true` 每资产仅最新一次观测
-(默认,total=199,529);`false` 查全部历史观测(同资产多行,total=950,921,约 4.8 倍)。
-**排序与 latest 无关**:两种情况引擎默认都按采集时间倒序(最新优先)。
-host 族 latest=false 时同 IP 多行重复计费,慎用。另:host 接口(search/quake_host)实测无 latest 参数,引擎默认即最新观测;service 族才有该开关。
 | QuakeSearchScrollURL | `/api/v3/scroll/quake_service` | POST | 可用 | 同 search 参数,`pagination_id` 翻页(5 分钟有效),翻页时其余参数不可变 |
 | QuakeVulnerabilityURL | `/api/v3/scroll/quake_vulnerability` | POST | 可用 | **仅裸文本/引号短语查询**,字段语法(app:、vul_cve_id:)报 u3017;游标翻页同 scroll |
 | QuakeVulnerabilityInfoURL | `/api/v3/vulnerability/db/cve/detail/{cve}` | GET | 可用 | 免费,不扣积分;查不到返回 code 0 + 空 data |
-| QuakeAggregationURL | `/api/v3/aggregation/quake_service` | POST | 可用 | `aggregation_list` 最多 2 个字段;**按 size 计费,1 桶 1 长效积分**(2026-11-04 实测 size=1/3/5 分别扣 1/3/5;host-agg 同价);真免费的是 cve/icon/fields/syntax |
+| QuakeAggregationURL | `/api/v3/aggregation/quake_service` | POST | 可用 | `aggregation_list` 最多 2 个字段;聚合会扣长效积分(见下) |
 | QuakeSubmitActiveScanURL | `/api/v3/fast_scan` | POST | 可用 | 提交形三选一:query(检索语法)/ ip_list(数组)/ domain_list(数组);port_list 必填(缺报 u3009);建议 ip 与域名分开下两次(用户实践);响应 task_id 在 message |
 | QuakeGetActiveScanInfoURL | `/api/v3/fast_scan/{task_id}` | GET | 可用 | 详情:id/runtime_id/progress/total/send/success/failed/status_records 时间线/end_time;状态机 Calculating -> Running -> Sent -> Finished(2026-11-04 九任务实测);顶层 status 翻牌滞后,完成判定看 Finished;API 不回显提交参数(target 仅存本地簿) |
 | QuakeGetActiveScanResultURL | `/api/v3/fast_scan/result/{runtime_id}` | GET | 可用 | 路径参数是 **runtime_id**(详情端点 data.runtime_id,与 task_id 相邻减一);返回**扫描器风险项**,常规目标(含已收录资产、有洞资产)实测恒空;`?start=&size=` 分页。资产采集结果不走此端点 |
@@ -31,6 +27,16 @@ result 端点仅为风险项面,常规目标恒空(1.1.1.1/有洞资产/DVR 弱�
 
 **任务列表端点:不存在**(2026-11-04 探测)。fast_scan 与 custom_scan 均只有「新建 + 按 id 查详情/结果」;实测探测过的列表形(fast_scan/list、task_list、history、user/scan_tasks 等)全部 404 或参数错误。「查所有任务」只能靠本地任务簿(scan_tasks 表,scan-ls 命令)。
 | QuakeCompareDocURL | `/api/v3/search/compare/docs` | POST | 可用 | `doc_ids` 至少 3 个;返回多文档字段对比(control.scanner_hostname/service.name/task.* 等) |
+
+**latest 参数语义(2026-11-04 实测,qq.com 对照)**:service 族 `latest=true` 每资产仅
+最新一次观测(默认,total=199,529);`false` 查全部历史观测(同资产多行,total=950,921,
+约 4.8 倍)。**排序与 latest 无关**:两种情况引擎默认都按采集时间倒序。host 接口
+(search/quake_host)实测**无 latest 参数**,引擎默认即最新观测。CLI 关闭写法:`--no-latest`
+(`--latest false` 字符串写法实测不生效)。
+
+**聚合计费(2026-11-04 单账户四次对照)**:service 1/3/5 分别扣 1/3/5,host 一次同现;
+是否为「返回桶数」计费及多 facet/不足 size 的边界**未测,非官方承诺**。本批已实测免费的
+包括 cve/icon/fields/syntax/fts/doctor。
 
 ## 权限说明(统一口径)
 

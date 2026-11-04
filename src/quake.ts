@@ -53,7 +53,7 @@ async function quakeRequest(
     const next = needPermission
       ? ' 下一步: 该接口需向 quake@360.cn 申请权限,可先 quake-h user 查看当前角色。'
       : noCredit
-        ? ' 下一步: quake-h user 查月度剩余额度,或缩小 --size 减少扣费。'
+        ? ' 下一步: quake-h user 查长效积分余量(persistent_credit),或缩小 --size 减少扣费。'
         : ''
     throw new IncurError({
       code: env.code,
@@ -215,7 +215,7 @@ const cli = Cli.create('quake-h', {
   sync: {
     suggestions: [
       'quake-h doctor',
-      'quake-h service-agg "app:\"Nginx\"" --by country_cn --size 5',
+      'quake-h service-agg "app:\"Nginx\"" --by country_cn --size 3',
       'quake-h service-search "service: http" --size 1',
       'quake-h fts title:login',
       'quake-h cve CVE-2021-44228',

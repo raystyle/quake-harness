@@ -191,7 +191,7 @@ export function registerHostCommands(cli: QuakeCli): void {
   })
 
   cli.command('host-agg', {
-    description: '主机数据聚合统计(最多 2 字段;按 size 计费,1 桶 1 长效积分)',
+    description: '主机数据聚合统计(最多 2 字段;聚合会扣长效积分,小 size 控成本)',
     args: z.object({
       query: z.string().describe('Quake 检索语法'),
     }),

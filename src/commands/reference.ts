@@ -9,7 +9,12 @@ export function registerReferenceCommands(cli: QuakeCli): void {
     args: z.object({
       dataset: z.enum(['service', 'host', 'service-agg', 'host-agg']).describe('service/host 为可筛选字段,带 -agg 后缀为聚合字段'),
     }),
-    output: z.object({ count: z.number(), cache_hit: z.boolean(), fields: z.array(z.string()) }),
+    output: z.object({
+      count: z.number(),
+      cache_hit: z.boolean(),
+      fields: z.array(z.string()),
+      cta: z.object({ description: z.string(), commands: z.array(z.unknown()) }),
+    }),
     examples: [{ args: { dataset: 'service' }, description: '服务数据可筛选字段' }],
     async run(c) {
       const token = pickToken(c)
@@ -28,6 +33,10 @@ export function registerReferenceCommands(cli: QuakeCli): void {
       )
       const typed = json as { data?: string[] }
       const fields = typed.data ?? []
+      // CTA 按 dataset 分流:host 系数据集走 host-agg;by 优先取返回字段中的聚合字段
+      const isHost = c.args.dataset.startsWith('host')
+      const base = isHost ? 'host-agg' : 'service-agg'
+      const byField = fields.find((f) => ['service', 'country', 'country_cn', 'asn', 'org'].includes(f)) ?? (isHost ? 'service' : 'service')
       return {
         count: fields.length,
         cache_hit: cacheHit,
@@ -35,7 +44,7 @@ export function registerReferenceCommands(cli: QuakeCli): void {
         cta: {
           description: '下一步:',
           commands: [
-            { command: 'service-agg', args: { query: 'service: http' }, options: { by: [c.args.dataset.endsWith('-agg') ? c.args.dataset.split('-')[0] : 'service'] }, description: '用这些字段聚合(按桶计费)' },
+            { command: base, args: { query: isHost ? 'country_cn:"中国"' : 'service: http' }, options: { by: [byField], size: 3 }, description: `用 ${base} 小 size 验桶(按桶计费)` },
           ],
         },
       }
@@ -62,6 +71,7 @@ export function registerReferenceCommands(cli: QuakeCli): void {
         doc_count: z.number(),
         data_prefix: z.string(),
       })),
+      cta: z.object({ description: z.string(), commands: z.array(z.unknown()) }),
     }),
     examples: [{ args: { faviconHash: '827fd6c561d4b1f932f75e0f9a17f766' }, description: '找同 favicon 资产' }],
     async run(c) {

@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `调用API过于频繁` | q3005 | 撞服务端节流 | 稍等即可:自适应限流会自动退避(q3005 后间隔翻倍 + 静默期);`quake-h rate` 看当前节奏 |
 | `自适应限流等待超限` | RATE_LIMITED | 静默期太长,等待超过一轮 | 稍后再试;急用可 `quake-h rate --reset` 复位(代价是失去学习到的节奏) |
-| `积分不足` 类 message | 积分类错误 | 长效积分池耗尽 | `quake-h user` 看 persistent_credit;减少批量拉取,小 size 聚合代替(真免费:cve/icon/fields/syntax) |
+| `积分不足` 类 message | 积分类错误 | 长效积分池耗尽 | `quake-h user` 看 persistent_credit;减少批量拉取,小 size 聚合代替(已实测免费:cve/icon/fields/syntax) |
 
 ## 权限(u/q 前缀服务端码)
 
@@ -44,7 +44,7 @@
 | 查询 total=0 但资产应存在 | 敏感词屏蔽(如 360 自有域名)或语法分词 | 换等价语法验证(`domain:*.gov.cn` 对照);裸词加引号防分词 |
 | scan-result 恒空 | 常规目标无「风险项」,该端点非资产面 | 资产产出走 `service-search 'task.runtime_id:"<rid>"'`(延迟较高);见 advanced.md 扫描簿 |
 | fts 搜不到刚查的 | 只索引已归档资产;或列截断 | 确认查询走了 service-search/domain(会归档);全文深挖用 export --sql + json_extract;旧库跑 `fts --backfill` |
-| total 比预期大数倍 | `--latest false` 查了全部历史观测(同资产多行) | 默认 true 只取最新观测;要历史才显式传 false |
+| total 比预期大数倍 | `--no-latest` 查了全部历史观测(同资产多行) | 默认最新观测;要历史用 `--no-latest`(注意 `--latest false` 写法不生效) |
 | 二跑 cache_hit: false | 参数变了(cache_key 含全部请求参) | 对比两跑的 cache_key;时间窗类参数是否取整(domain 已取整到天) |
 
 ## 环境与数据

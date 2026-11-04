@@ -29,7 +29,7 @@ L2 的关键是找「**页面亲口报版本 + 补丁引入了可检索的新特
 
 ## 3. 工作流:低成本定形,付费抽样
 
-1. **低成本定形**:`syntax` 查字段可用性(免费)-> `service-agg` 小 size 切面(country/asn/org/port/title/app_version)摸桶;聚合按 size 计费(1 桶 1 长效积分),size=3 起步验桶,桶成分验明才放大
+1. **低成本定形**:`syntax` 查字段可用性(免费)-> `service-agg` 小 size 切面(country/asn/org/port/title/app_version)摸桶;聚合会扣长效积分(与 size 正相关),size=3 起步验桶,桶成分验明才放大
 2. **付费抽样**:桶验明无污染后才 `service-search` 抽 10 条看活体与归档(每条 1 积分)
 3. **归档复用**:抽样自动入库,后续用 `export --sql` 离线分析或 `fts` 全文检索(见 [advanced.md](advanced.md) FTS 节),不重复花钱
 

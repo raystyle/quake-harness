@@ -149,6 +149,41 @@ describe('全端点 fixture 回归(真实付费响应,离线 mock)', () => {
     expect(out.runtime_id).toBe('6aead05b701f0f2b355dcb77')
   })
 
+  test('MCP output schema:H2 回归,新字段/CTA 声明齐(service-search/fields/icon)', async () => {
+    // MCP 面按 output schema 校验(additionalProperties=false),漏声明的字段会
+    // Output validation error;此用例经 MCP tools/call 验证三工具带 latest_note/cta 仍过
+    const proc = Bun.spawn(['bun', 'src/cli.ts', '--mcp'], {
+      cwd: ROOT,
+      env: { ...process.env, QUAKEH_HOME: home, QUAKE_FIXTURES: undefined },
+      stdin: 'pipe', stdout: 'pipe', stderr: 'pipe',
+    })
+    const send = (obj: unknown) => proc.stdin.write(JSON.stringify(obj) + '\n')
+    const lines: string[] = []
+    const reader = (async () => {
+      const dec = new TextDecoder()
+      let buf = ''
+      for await (const chunk of proc.stdout as any) {
+        buf += dec.decode(chunk, { stream: true })
+        let i: number
+        while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (l) lines.push(l) }
+      }
+    })()
+    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '0' } } })
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+    send({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'fields', arguments: { dataset: 'service' } } })
+    send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'icon', arguments: { faviconHash: '827fd6c561d4b1f932f75e0f9a17f766', size: 1 } } })
+    await Bun.sleep(2500)
+    proc.stdin.end()
+    await reader.catch(() => {})
+    proc.kill()
+    const byId = (id: number) => lines.map((l) => { try { return JSON.parse(l) } catch { return null } }).find((r) => r?.id === id)
+    const f = byId(2), i = byId(3)
+    expect(f?.result?.content).toBeDefined()      // 无 isError / validation error
+    expect(JSON.stringify(f?.result)).not.toContain('validation')
+    expect(i?.result?.content).toBeDefined()
+    expect(JSON.stringify(i?.result)).not.toContain('validation')
+  }, 30000)
+
   test('service-search 二段: 缓存命中不重复归档', async () => {
     // 独立参数(size 3)避开前测预热,验证 miss -> hit 全链
     const first = await run(['service-search', 'service: ssh', '--size', '3'])

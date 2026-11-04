@@ -80,7 +80,7 @@ bun src/cli.ts user    # 或二进制 quake-h user
 quake-h service-search 'service: http AND country: "CN"' --size 5   # 服务查询(每条 1 积分,24h 缓存)
 quake-h host-search 'ip:"1.2.3.4"'                          # 主机查询(带端口服务视图)
 quake-h domain qq.com --size 10                             # 域名资产(官方 quake_rs 同款,剔 CDN/蜜罐)
-quake-h service-agg 'app:"Nginx"' --by country              # 聚合切面(按桶计费,1 桶 1 分)
+quake-h service-agg 'app:"Nginx"' --by country              # 聚合切面(会扣长效积分,size 小步)
 quake-h cve CVE-2021-44228                                  # CVE 详情(免费)
 quake-h syntax cert                                         # 检索语法离线查(129 字段)
 quake-h export --sql 'SELECT count(*) FROM assets'          # 归档离线分析

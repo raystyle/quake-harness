@@ -171,14 +171,16 @@ export function registerDoctorCommands(cli: QuakeCli): void {
               data?: { credit?: number; month_remaining_credit?: number; persistent_credit?: number }
             }
             const latency = Date.now() - t0
+            // 长效积分口径:缺失时回落 credit,detail 与 net_probe 共用同一取值
+            const resolvedCredit = json.data?.persistent_credit ?? json.data?.credit ?? null
             netProbe = {
               ok: true, host: QUAKE_HOST, latency_ms: latency,
-              credit: json.data?.persistent_credit ?? json.data?.credit ?? null,
+              credit: resolvedCredit,
               month_remaining_credit: json.data?.month_remaining_credit ?? null,
             }
             checks.push({
               name: 'net', status: 'ok',
-              detail: `探活成功 ${latency}ms,长效积分 ${json.data?.persistent_credit ?? '未知'}`,
+              detail: `探活成功 ${latency}ms,长效积分 ${resolvedCredit ?? '未知'}`,
             })
           } catch (err) {
             netProbe = { ok: false, host: QUAKE_HOST, latency_ms: null, credit: null, month_remaining_credit: null }
