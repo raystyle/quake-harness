@@ -196,7 +196,7 @@ const stringList = (description: string) =>
     .describe(description)
 
 const cli = Cli.create('quake-h', {
-  version: '0.2.1',
+  version: '0.2.2',
   description: '360 Quake 网络空间测绘 API 客户端(服务查询/主机查询/聚合/CVE 详情/对比/主动扫描)',
   mcp: {
     // 常规直出面:每个命令注册为独立 MCP 工具(带完整 inputSchema),

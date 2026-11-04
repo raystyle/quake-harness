@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布(2026-11-04 review 修复)
+## v0.2.2(2026-11-04)
 
 - 聚合计费实测纠正:聚合会扣长效积分(与 size 正相关,单账户四次对照 1/3/5 扣 1/3/5);全仓 12 处「聚合免费」表述已改,措辞按证据边界收敛(未测多 facet/不足 size,非官方承诺)
 - latest 输出面:service-search 返回 latest_note 口径注记;--latest false 字符串写法实测不生效(zod boolean 不收),文档统一 --no-latest;对比 CTA 沿用原查询过滤条件
