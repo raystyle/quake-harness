@@ -21,6 +21,10 @@ export interface AssetKey {
   transport: Transport
 }
 
+/** 端点形 doc_id 的模板字面量(类型层约束;运行时校验仍在 isDocId,两道互补):
+ *  ip_port_transport / host_port_transport 形在此编译期可查 */
+export type EndpointDocId = `${string}_${number}_${Transport}`
+
 /** 主动扫描任务 id(24 位 hex),与 DocId 同形不同义,禁止互传 */
 export type TaskId = Brand<string, 'TaskId'>
 
@@ -95,6 +99,34 @@ export function isIpCidr(v: string): v is IpCidr {
   const octets = m[1]!.split('.').map(Number)
   if (!octets.every((o) => o <= 255)) return false
   return m[2] === undefined || Number(m[2]) <= 32
+}
+
+// ---------------------------------------------------------------------------
+// 扫描任务状态:实测词表 + 未知值兜底联合
+// 实测来源:scan-status 直查(Running/Paused)、status_records 时间线(Calculating)、
+// scan-result 结果非空(Finish 路径)、代码登记(Running)。词表未穷尽,
+// 新词表以 kind:'unknown' 兜底,不经 any 丢类型
+// ---------------------------------------------------------------------------
+
+/** 实测已知的扫描任务状态闭集 */
+export type ScanStatusKnown = 'Calculating' | 'Running' | 'Paused' | 'Finish' | 'Stop' | 'Fail'
+
+/** 扫描状态:已知词表或未知原文(可辨识联合,消费侧 switch 穷尽) */
+export type ScanStatus =
+  | { kind: 'known'; status: ScanStatusKnown }
+  | { kind: 'unknown'; raw: string }
+
+/** ScanStatus 守卫与构造:唯一入口,未知值落 unknown 分支不丢信息 */
+export function scanStatus(raw: string): ScanStatus {
+  const KNOWN: readonly ScanStatusKnown[] = ['Calculating', 'Running', 'Paused', 'Finish', 'Stop', 'Fail']
+  return KNOWN.includes(raw as ScanStatusKnown)
+    ? { kind: 'known', status: raw as ScanStatusKnown }
+    : { kind: 'unknown', raw }
+}
+
+/** ScanStatus 人读形(scan_tasks 列存原词,读出经 scanStatus 再窄化) */
+export function scanStatusToString(s: ScanStatus): string {
+  return s.kind === 'known' ? s.status : s.raw
 }
 
 /** API size 上限(实测 search/scroll/host 族 API 上限 500;入口守卫防积分事故) */

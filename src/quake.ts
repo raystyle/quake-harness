@@ -3,7 +3,7 @@ import { cacheKey, readCache, writeRaw, TTL_HOURS, readUserEnvFallback } from '.
 import { getDb, recordRun, type AssetRow } from './archive'
 import { acquire, reportOk, reportLimited, LIMITS } from './ratelimit'
 import { isDocId, type DocId, type RawMethod, type CacheableMethod } from './types'
-import { detectQuakeError } from './schemas'
+import { parseEnvelope } from './schemas'
 
 const { IncurError } = Errors
 
@@ -45,9 +45,9 @@ async function quakeRequest(
     })
   }
   const json = (await res.json().catch(() => null)) as unknown
-  const err = detectQuakeError(json)
-  if (err) {
-    const msg = err.message
+  const env = parseEnvelope(json)
+  if (env.kind === 'err') {
+    const msg = env.message
     const needPermission = msg.includes('Missing permission') || msg.includes('权限')
     const noCredit = msg.includes('积分')
     const next = needPermission
@@ -56,7 +56,7 @@ async function quakeRequest(
         ? ' 下一步: quake-h user 查月度剩余额度,或缩小 --size 减少扣费。'
         : ''
     throw new IncurError({
-      code: String(err.code),
+      code: env.code,
       message: msg + next,
       retryable: noCredit,
     })

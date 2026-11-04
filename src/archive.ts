@@ -94,6 +94,7 @@ export interface ScanTaskRecord {
   taskId: TaskId
   target: string
   portList: string
+  /** 服务端状态原词(scanStatus 联合的列存形);空串 = 不改状态(scan-result 语义) */
   status: string
   progress: number
   total?: number | null

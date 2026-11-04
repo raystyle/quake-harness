@@ -8,7 +8,7 @@ import { z } from 'incur'
  */
 
 // ---------------------------------------------------------------------------
-// 信封(F03:code/message 类型安全)
+// 信封:判别联合(F03 类型安全 + 消费侧 switch 穷尽)
 // ---------------------------------------------------------------------------
 
 /** 失败信封:code 非零(0 与 '0' 均为成功);message 未知类型,消费侧字符串化 */
@@ -19,17 +19,29 @@ const ErrEnvelope = z
   })
   .passthrough()
 
-/** 探测响应是否为 Quake 失败信封;是则返回归一化的 {code, message} */
-export function detectQuakeError(body: unknown): { code: string | number; message: string } | null {
-  if (typeof body !== 'object' || body === null) return null
+/** Quake 信封判别联合:成功返原 body(数据形各异不锁),失败返归一化错误 */
+export type QuakeEnvelope =
+  | { kind: 'ok'; body: Record<string, unknown> }
+  | { kind: 'err'; code: string; message: string }
+
+/** 解析信封为判别联合;非对象/缺 code 形视为 ok 透传(历史行为,compare 等端点依赖) */
+export function parseEnvelope(body: unknown): QuakeEnvelope {
+  if (typeof body !== 'object' || body === null) return { kind: 'ok', body: {} }
   const parsed = ErrEnvelope.safeParse(body)
-  if (!parsed.success) return null
+  if (!parsed.success) return { kind: 'ok', body: body as Record<string, unknown> }
   const { code, message } = parsed.data
-  if (code === 0 || code === '0') return null
+  if (code === 0 || code === '0') return { kind: 'ok', body: body as Record<string, unknown> }
   return {
-    code,
+    kind: 'err',
+    code: String(code),
     message: typeof message === 'string' ? message : String(message ?? ''),
   }
+}
+
+/** 探测响应是否为 Quake 失败信封;是则返回归一化的 {code, message}(parseEnvelope 的 err 判别便捷形) */
+export function detectQuakeError(body: unknown): { code: string; message: string } | null {
+  const env = parseEnvelope(body)
+  return env.kind === 'err' ? { code: env.code, message: env.message } : null
 }
 
 // ---------------------------------------------------------------------------

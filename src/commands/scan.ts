@@ -1,7 +1,7 @@
 import { z } from 'incur'
 import { quakeRequest, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, upsertScanTask } from '../archive'
-import { isTaskId, type TaskId } from '../types'
+import { isTaskId, scanStatus, scanStatusToString, type TaskId } from '../types'
 
 /** 主动扫描族:scan / scan-status / scan-result / scan-ls */
 export function registerScanCommands(cli: QuakeCli): void {
@@ -91,12 +91,13 @@ export function registerScanCommands(cli: QuakeCli): void {
         data?: Record<string, unknown>
       }
       const d = json.data ?? {}
-      // 刷新任务库状态
+      // 刷新任务库状态;状态经 scanStatus 联合窄化(未知词表不丢原文)
+      const st = typeof d.status === 'string' ? scanStatus(d.status) : scanStatus('Unknown')
       upsertScanTask(getDb(), {
         taskId: c.args.taskId,
         target: String(d.target ?? ''),
         portList: String(d.port_list ?? ''),
-        status: String(d.status ?? 'Unknown'),
+        status: scanStatusToString(st),
         progress: Number(d.progress ?? 0),
         total: (d.total as number) ?? null,
         send: (d.send as number) ?? null,
