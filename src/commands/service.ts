@@ -1,7 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, toAssetRow, type QuakeCli } from '../quake'
 import { getDb, upsertAssets, saveAgg } from '../archive'
-import { API_SIZE_MAX } from '../types'
+import { validSize, API_SIZE_MAX } from '../types'
 
 /** 服务数据查询族:search / scroll / agg */
 
@@ -37,10 +37,10 @@ export function registerServiceCommands(cli: QuakeCli): void {
       const token = pickToken(c)
       const o = c.options
       // 积分事故防线:size 每条 1 积分,入口拦下超限请求
-      if (o.size > API_SIZE_MAX) {
+      if (!validSize(o.size)) {
         return c.error({
           code: 'USAGE',
-          message: `size 上限 ${API_SIZE_MAX}(每条结果扣 1 积分;批量拉取走 service-scroll)`,
+          message: `size 须为 1 到 ${API_SIZE_MAX} 的整数(每条结果扣 1 积分;批量拉取走 service-scroll)`,
           retryable: false,
         })
       }
@@ -69,7 +69,8 @@ export function registerServiceCommands(cli: QuakeCli): void {
       )
       const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
       const items = typed.data ?? []
-      const archived = cacheHit ? 0 : upsertAssets(getDb(), items.map(toAssetRow))
+      const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
+      const archived = cacheHit ? 0 : upsertAssets(getDb(), rows)
       return {
         total: typed.meta?.pagination?.total ?? null,
         count: items.length,
@@ -142,7 +143,8 @@ export function registerServiceCommands(cli: QuakeCli): void {
       )
       const typed = json as { data?: unknown[]; meta?: { pagination_id?: string; total?: { value?: number } } }
       const items = typed.data ?? []
-      const archived = upsertAssets(getDb(), items.map(toAssetRow))
+      const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
+    const archived = upsertAssets(getDb(), rows)
       const paginationId = typed.meta?.pagination_id
       return {
         total: typed.meta?.total?.value ?? null,

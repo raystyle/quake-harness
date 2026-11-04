@@ -3,6 +3,7 @@ import { mkdirSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { quakeHHome, quakeHCache } from './cache'
 import type { DocId, TaskId, Month } from './types'
+import { isMonth, isDocId } from './types'
 
 /**
  * B 层归档:按数据时间(年月)分库 + 三时间语义分离(见 src/types.ts TimeAxis)。
@@ -104,12 +105,13 @@ export interface ScanTaskRecord {
 
 export function upsertScanTask(db: Database, r: ScanTaskRecord): void {
   const now = new Date().toISOString()
+  // status 为空串 = 不改状态(scan-result 只更新结果计数,状态由 scan-status 权威刷新)
   db.query(`
     INSERT INTO scan_tasks (task_id, target, port_list, status, progress, total, send, success, failed, result_count, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(task_id) DO UPDATE SET
-      status = excluded.status,
-      progress = excluded.progress,
+      status = CASE WHEN excluded.status = '' THEN scan_tasks.status ELSE excluded.status END,
+      progress = CASE WHEN excluded.status = '' THEN scan_tasks.progress ELSE excluded.progress END,
       total = excluded.total,
       send = excluded.send,
       success = excluded.success,
@@ -164,7 +166,8 @@ export function listMonths(): Month[] {
   const { readdirSync } = require('node:fs') as typeof import('node:fs')
   return readdirSync(home)
     .filter((f) => /^\d{4}-\d{2}\.sqlite$/.test(f))
-    .map((f) => f.slice(0, -'.sqlite'.length) as Month)
+    .map((f) => f.slice(0, -'.sqlite'.length))
+    .filter(isMonth)
     .sort()
 }
 
@@ -214,11 +217,18 @@ export function recordRun(db: Database, r: RunRecord): void {
 export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
   if (rows.length === 0) return 0
   const now = new Date().toISOString()
+  // 自防御:拒收非法 doc_id(空串/异形),避免多条共享主键互相覆盖;
+  // 守卫在 toAssetRow 已做一道,这里挡绕过命令层直调的调用方
+  const valid = rows.filter((a) => isDocId(a.doc_id as string))
+  if (valid.length < rows.length) {
+    process.stderr.write(`[archive] 拒收 ${rows.length - valid.length} 条非法 doc_id 文档\n`)
+  }
   // 按数据年月分组,各组写自己的月库
   const byMonth = new Map<Month, AssetRow[]>()
-  for (const a of rows) {
-    // 数据时间为空:回落观测时刻并打标(data_time_is_observed=1)
-    const hasDataTime = Boolean(a.time)
+  for (const a of valid) {
+    // 数据时间可解析才算真实采集时间;空串/非法串一律回落观测时刻并打标
+    // (data_time_is_observed=1),禁止非法串冒充引擎采集时间
+    const hasDataTime = Number.isFinite(Date.parse(a.time))
     const effective = hasDataTime ? a.time : now
     const m = dataMonth(effective)
     const enriched: AssetRow = { ...a, time: effective }
@@ -252,7 +262,7 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
         // 坑:ON CONFLICT DO UPDATE 的 lastInsertRowid 在冲突更新时指向
         // 冲突探测行(新分配的 abort rowid),不是被更新行,不能用于 FTS 定位
         const rowid = (db.query('SELECT rowid FROM assets WHERE doc_id = ?').get(a.doc_id) as { rowid: number | bigint } | null)?.rowid
-        if (rowid !== undefined) ftsUpsert(db, rowid, a.raw_json)
+        if (rowid !== undefined) ftsUpsert(db, rowid, a.doc_id, a.raw_json)
       }
     })
     tx(batch)
@@ -296,33 +306,24 @@ export function ftsColumns(rawJson: string): { title: string; body: string; serv
   }
 }
 
-/** 单行 FTS 写入(UPSERT 后调用;同 rowid 先删后插,幂等) */
-function ftsUpsert(db: Database, rowid: number | bigint, rawJson: string): void {
+/** 单行 FTS 写入(UPSERT 后调用;同 rowid 先删后插,幂等)。
+ *  doc_id 用 assets 表已窄化值直传,不从 raw_json 重取(避免与主表不一致) */
+function ftsUpsert(db: Database, rowid: number | bigint, docId: string, rawJson: string): void {
   const c = ftsColumns(rawJson)
   db.query('DELETE FROM assets_fts WHERE rowid = ?').run(rowid)
   db.query(
     'INSERT INTO assets_fts(rowid, doc_id, title, body, server, host) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(rowid, ftsDocId(rowid, rawJson), c.title, c.body, c.server, c.host)
-}
-
-/** doc_id 从 raw_json 提取(FTS 行带 doc_id 便于直查);取不到回落 rowid 串 */
-function ftsDocId(rowid: number | bigint, rawJson: string): string {
-  try {
-    const id = (JSON.parse(rawJson) as { id?: unknown }).id
-    return typeof id === 'string' ? id : String(rowid)
-  } catch {
-    return String(rowid)
-  }
+  ).run(rowid, docId, c.title, c.body, c.server, c.host)
 }
 
 /** 存量库回填(建虚表时已入库的行);重跑幂等 */
 export function backfillFts(month: Month): number {
   const db = getMonthDb(month)
   const rows = db.query(
-    'SELECT a.rowid AS rid, a.raw_json FROM assets a LEFT JOIN assets_fts f ON f.rowid = a.rowid WHERE f.rowid IS NULL',
-  ).all() as Array<{ rid: number; raw_json: string }>
+    'SELECT a.rowid AS rid, a.doc_id AS did, a.raw_json FROM assets a LEFT JOIN assets_fts f ON f.rowid = a.rowid WHERE f.rowid IS NULL',
+  ).all() as Array<{ rid: number; did: string; raw_json: string }>
   const tx = db.transaction((list: typeof rows) => {
-    for (const r of list) ftsUpsert(db, r.rid, r.raw_json)
+    for (const r of list) ftsUpsert(db, r.rid, r.did, r.raw_json)
   })
   tx(rows)
   return rows.length

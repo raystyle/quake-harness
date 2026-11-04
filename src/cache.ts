@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { homedir, platform } from 'node:os'
 import { join } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import type { CacheKey, RawMethod, CacheableMethod, FieldsDataset } from './types'
 
 /**
  * 平台标准目录解析(gh 模型:XDG + Win AppData;macOS 走 ~/.config,CLI 不用 Application Support)。
@@ -129,8 +130,9 @@ export function stableStringify(value: unknown): string {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`).join(',')}}`
 }
 
-export function cacheKey(method: string, query: string, params: unknown): string {
-  return createHash('sha256').update(`${method}\n${query}\n${stableStringify(params)}`).digest('hex').slice(0, 32)
+/** cache 键:sha256 截断 32 hex(碰撞域 128 位,实践安全);唯一构造入口,返回即 CacheKey */
+export function cacheKey(method: string, query: string, params: unknown): CacheKey {
+  return createHash('sha256').update(`${method}\n${query}\n${stableStringify(params)}`).digest('hex').slice(0, 32) as CacheKey
 }
 
 export interface CacheEntry {
@@ -157,7 +159,7 @@ function today(): string {
  * 只知道 key 不知道日期,扫 raw 下各日期目录找 key.json(目录少,可接受)。
  * ttlHours <= 0 视为永不读缓存(scroll 族游标翻页语义)。
  */
-export function readCache(method: string, key: string, ttlHours: number): CacheEntry | null {
+export function readCache(method: RawMethod, key: CacheKey, ttlHours: number): CacheEntry | null {
   if (ttlHours <= 0) return null
   const base = join(quakeHCache(), 'raw', method)
   if (!existsSync(base)) return null
@@ -188,7 +190,8 @@ export function writeRaw(method: string, key: string, body: unknown): string {
   return p
 }
 
-/** TTL 默认值(小时):search 短保新鲜,agg/字段面中,cve 长(漏洞库变更慢);scroll 族游标翻页不缓存 */
+/** TTL 默认值(小时):search 短保新鲜,agg/字段面中,cve 长(漏洞库变更慢);scroll 族游标翻页不缓存。
+ *  satisfies Record<CacheableMethod, number>:新增可缓存方法漏配 TTL 即编译失败(穷尽性闭合) */
 export const TTL_HOURS = {
   search: 24,
   scroll: 0,
@@ -198,4 +201,4 @@ export const TTL_HOURS = {
   host_agg: 168,
   cve: 720,
   icon: 168,
-} as const
+} as const satisfies Record<CacheableMethod, number>

@@ -89,7 +89,8 @@ export function registerDomainCommands(cli: QuakeCli): void {
       const typed = json as { data?: unknown[]; meta?: { pagination?: { total?: number } } }
       const items = typed.data ?? []
       // 与 service-search 同契约:命中即归档(缓存命中不重复扣行)
-      const archived = cacheHit ? 0 : upsertAssets(getDb(), items.map(toAssetRow))
+      const rows = items.map(toAssetRow).filter((r): r is import('../archive').AssetRow => r !== null)
+      const archived = cacheHit ? 0 : upsertAssets(getDb(), rows)
       return {
         total: typed.meta?.pagination?.total ?? null,
         count: items.length,

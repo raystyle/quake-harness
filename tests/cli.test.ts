@@ -89,7 +89,7 @@ describe('cache 单元', async () => {
     // TTL 0 = 永不命中
     expect(readCache('agg', key, 0)).toBeNull()
     // 不存在的 key
-    expect(readCache('agg', 'ffffffffffffffffffffffffffffffff', 1)).toBeNull()
+    expect(readCache('agg', 'ffffffffffffffffffffffffffffffff' as import('../src/types').CacheKey, 1)).toBeNull()
   })
 
   test('TTL 表覆盖全部缓存方法', () => {
@@ -147,9 +147,9 @@ describe('archive 单元', async () => {
     getMonthDb('2025-01' as import('../src/types').Month).exec('DELETE FROM assets')
     const db = getDb()
     upsertAssets(db, [{
-      doc_id: 'a_1_tcp' as import('../src/types').DocId, ip: '1.1.1.1', port: 1, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-01-01T00:00:00Z', raw_json: '{}',
+      doc_id: '1.1.1.1_1_tcp' as import('../src/types').DocId, ip: '1.1.1.1', port: 1, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-01-01T00:00:00Z', raw_json: '{}',
     }, {
-      doc_id: 'b_2_tcp' as import('../src/types').DocId, ip: '2.2.2.2', port: 2, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}',
+      doc_id: '2.2.2.2_2_tcp' as import('../src/types').DocId, ip: '2.2.2.2', port: 2, transport: 'tcp', service_name: '', hostname: '', country: '', time: '2025-06-01T00:00:00Z', raw_json: '{}',
     }])
     const fed = openFederatedDb()
     const n: any = fed.db.query(`SELECT count(*) AS n, count(DISTINCT month) AS months FROM ${fed.assetsRef}`).get()

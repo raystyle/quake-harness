@@ -30,9 +30,22 @@ export type CacheKey = Brand<string, 'CacheKey'>
 /** 月库分桶键 'YYYY-MM',dataMonth() 产物 */
 export type Month = Brand<string, 'Month'>
 
-/** DocId 守卫:实测两种形态均为合法 doc id —— 24 位 hex(search 响应)与 ip_port_transport(compare 官方示例) */
+/** DocId 守卫:实测三种合法形态 —— 24 位 hex(search 响应)、ip_port_transport、
+ *  host_port_transport(vhost 文档用域名作前缀,如 halifejewelry.com_443_tcp)。
+ *  IP 形校验每段 <= 255;host 形走域名标签规则;端口 1-65535 */
 export function isDocId(v: string): v is DocId {
-  return /^[0-9a-f]{24}$/.test(v) || /^\d{1,3}(\.\d{1,3}){3}_\d+_(tcp|udp)$/.test(v)
+  if (/^[0-9a-f]{24}$/.test(v)) return true
+  const m = /^(.+)_(\d+)_(tcp|udp)$/.exec(v)
+  if (!m) return false
+  const port = Number(m[2])
+  if (port < 1 || port > 65535) return false
+  const host = m[1]!
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    // 纯数字四段按 IPv4 严校验:999.999.999.999 拒
+    return host.split('.').every((o) => Number(o) <= 255)
+  }
+  // 非纯数字:按域名 host 形(含至少一个点,字母数字连字符)
+  return /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/.test(host)
 }
 
 /** TaskId 守卫:24 位小写 hex(实测 fast_scan 任务 id 形) */
@@ -87,6 +100,11 @@ export function isIpCidr(v: string): v is IpCidr {
 /** API size 上限(实测 search/scroll/host 族 API 上限 500;入口守卫防积分事故) */
 export const API_SIZE_MAX = 500
 
+/** size 数值域完整校验:正整数且 <= max(z.coerce.number 会放过 -1/0/1.5,单独 > max 检查不完整) */
+export function validSize(size: number, max = API_SIZE_MAX): boolean {
+  return Number.isInteger(size) && size >= 1 && size <= max
+}
+
 /** CacheKey 守卫:32 位小写 hex(md5) */
 export function isCacheKey(v: string): v is CacheKey {
   return /^[0-9a-f]{32}$/.test(v)
@@ -127,11 +145,17 @@ export interface TimeAxis {
   last_seen: SeenTime
 }
 
+/** fields 命令的数据集闭集(四数据集) */
+export type FieldsDataset = 'service' | 'host' | 'service-agg' | 'host-agg'
+
 /** A 层缓存的 method 键(与命令名解耦:service-search 改名缓存不作废) */
 export type RawMethod =
   | 'search' | 'scroll' | 'agg' | 'host_search' | 'host_scroll' | 'host_agg'
   | 'vuln_scroll' | 'cve' | 'icon'
-  | `fields_${string}`
+  | `fields_${FieldsDataset}`
+
+/** 有 TTL 配置的可缓存方法(TTL_HOURS 穷尽键集;vuln_scroll 不缓存故不在列) */
+export type CacheableMethod = 'search' | 'scroll' | 'host_search' | 'host_scroll' | 'agg' | 'host_agg' | 'cve' | 'icon'
 
 // ---------------------------------------------------------------------------
 // Quake 原始文档形(L0 契约,来自实测样本;完整字段见 docs/data_contract_review.md)

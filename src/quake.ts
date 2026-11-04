@@ -13,13 +13,12 @@ interface QuakeErrorShape {
   message: string
 }
 
-/** Quake 统一返回信封:code 非零即失败 */
+/** Quake 统一返回信封:code 非零(数值 0 或字符串 '0' 均为成功)即失败 */
 function isQuakeError(body: unknown): body is QuakeErrorShape {
-  return (
-    typeof body === 'object' && body !== null &&
-    'code' in body && 'message' in body &&
-    (body as { code: unknown }).code !== 0
-  )
+  if (typeof body !== 'object' || body === null) return false
+  if (!('code' in body) || !('message' in body)) return false
+  const { code } = body as { code: unknown }
+  return code !== 0 && code !== '0'
 }
 
 /**
@@ -32,6 +31,14 @@ async function quakeRequest(
   token: string,
   init?: { method?: 'GET' | 'POST'; body?: unknown },
 ): Promise<unknown> {
+  // 统一认证边界:空 token 在此拦截,不再依赖各命令自查
+  if (!token) {
+    throw new IncurError({
+      code: 'NOT_AUTHENTICATED',
+      message: '未设置 QUAKE_API_KEY 环境变量 下一步: 在项目 .env 写入 QuakeAPIKey=<key> 或导出 QUAKE_API_KEY 后重试',
+      retryable: false,
+    })
+  }
   let res: Response
   try {
     res = await fetch(`${QUAKE_HOST}${path}`, {
@@ -147,14 +154,17 @@ async function cachedQuake(
   return { json, cacheHit: false, rawPath, cacheKeyStr: key }
 }
 
-/** 服务文档 -> 归档资产行;doc_id 守卫窄化(非 24 位 hex 的异常文档落空串由 UPSERT 侧吞并) */
-function toAssetRow(it: unknown): AssetRow {
+/** 服务文档 -> 归档资产行;非法/缺失 doc id 返回 null(调用方过滤并计数拒收),
+ *  禁止空串构造品牌值:空串会令多条非法文档共享月库主键互相覆盖 */
+function toAssetRow(it: unknown): AssetRow | null {
   const d = it as {
     id?: string; ip?: string; port?: number; transport?: string; hostname?: string;
     time?: string; service?: { name?: string }; location?: { country_cn?: string }
   }
+  const id = d.id ?? ''
+  if (!isDocId(id)) return null
   return {
-    doc_id: (isDocId(d.id ?? '') ? d.id : '') as DocId,
+    doc_id: id,
     ip: d.ip ?? '',
     port: d.port ?? null,
     transport: d.transport ?? '',

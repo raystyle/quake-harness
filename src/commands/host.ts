@@ -1,7 +1,7 @@
 import { z } from 'incur'
 import { cachedQuake, pickToken, stringList, type QuakeCli } from '../quake'
 import { getDb, saveAgg } from '../archive'
-import { isIpCidr, API_SIZE_MAX } from '../types'
+import { isIpCidr, validSize, API_SIZE_MAX } from '../types'
 
 /** 主机数据族:host-search / host-scroll / host-agg / host-honeypot */
 
@@ -61,10 +61,10 @@ export function registerHostCommands(cli: QuakeCli): void {
       const token = pickToken(c)
       const o = c.options
       // 积分事故防线:每 IP 扣 1 积分,入口拦超限
-      if (o.size > API_SIZE_MAX) {
+      if (!validSize(o.size)) {
         return c.error({
           code: 'USAGE',
-          message: `size 上限 ${API_SIZE_MAX}(每条结果扣 1 积分;批量拉取走 host-scroll)`,
+          message: `size 须为 1 到 ${API_SIZE_MAX} 的整数(每条结果扣 1 积分;批量拉取走 host-scroll)`,
           retryable: false,
         })
       }

@@ -37,12 +37,24 @@ export function registerScanCommands(cli: QuakeCli): void {
       // 实测返回:任务 id 在 message 字段(24 位 hex),data 为空对象;守卫窄化进 TaskId 域
       const fromData = typeof json.data === 'string' ? json.data : String((json.data as Record<string, unknown>)?.id ?? '')
       const rawTaskId = fromData || (json.message && isTaskId(json.message) ? json.message : '')
-      const taskId: TaskId | '' = rawTaskId && isTaskId(rawTaskId) ? rawTaskId : ''
+      const taskId: TaskId | null = rawTaskId && isTaskId(rawTaskId) ? rawTaskId : null
       // 长时任务登记进 runs 库:跨会话可查,状态由 scan-status 刷新
       if (taskId) {
         upsertScanTask(getDb(), {
           taskId, target: c.args.target, portList: c.options.portList!.join(','),
           status: 'Running', progress: 0,
+        })
+      }
+      // 解析失败:任务确已提交但拿不到 id,显式告知而非发空 id CTA
+      if (!taskId) {
+        return c.error({
+          code: 'ENGINE_PARSE',
+          message: '任务已提交但响应中未解析到任务 id(24 位 hex),请用 scan-ls 查看登记任务',
+          retryable: false,
+          cta: {
+            description: '下一步:',
+            commands: [{ command: 'scan-ls', description: '列全部登记任务' }],
+          },
         })
       }
       return {
@@ -116,9 +128,11 @@ export function registerScanCommands(cli: QuakeCli): void {
         token,
       )) as { data?: unknown; meta?: { pagination?: { total?: number } } }
       const total = json.meta?.pagination?.total ?? null
+      // 只更新结果计数,不改状态:服务端状态由 scan-status 权威刷新
+      // (total>0 推 Done 会把「完成但零结果」错标 Running)
       upsertScanTask(getDb(), {
         taskId: c.args.taskId, target: '', portList: '',
-        status: total && total > 0 ? 'Done' : 'Running', progress: 1, resultCount: total,
+        status: '', progress: 0, resultCount: total,
       })
       return {
         total,
