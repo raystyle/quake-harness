@@ -151,6 +151,7 @@ export function getMonthDb(month: Month): Database {
       CREATE INDEX IF NOT EXISTS idx_assets_ip ON assets(ip);
       CREATE INDEX IF NOT EXISTS idx_assets_data_time ON assets(data_time);
     `)
+    ensureFts(db)
     monthDbs.set(month, db)
   }
   return db
@@ -247,6 +248,11 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
           a.doc_id, a.ip, a.port, a.transport, a.service_name, a.hostname, a.country,
           a.time, enrichedRows.get(a.doc_id) ?? 0, now, now, a.raw_json,
         )
+        // FTS 同步:按 doc_id 查真实 rowid 回填。
+        // 坑:ON CONFLICT DO UPDATE 的 lastInsertRowid 在冲突更新时指向
+        // 冲突探测行(新分配的 abort rowid),不是被更新行,不能用于 FTS 定位
+        const rowid = (db.query('SELECT rowid FROM assets WHERE doc_id = ?').get(a.doc_id) as { rowid: number | bigint } | null)?.rowid
+        if (rowid !== undefined) ftsUpsert(db, rowid, a.raw_json)
       }
     })
     tx(batch)
@@ -258,6 +264,93 @@ export function upsertAssets(_runsDb: Database, rows: AssetRow[]): number {
 
 /** doc_id -> data_time_is_observed 标记(写入期暂存,避免改 AssetRow 形状) */
 const enrichedRows = new Map<string, number>()
+
+// ---------------------------------------------------------------------------
+// FTS5 全文索引:external content 表挂 assets,可检索文本列从 raw_json 提取
+// ---------------------------------------------------------------------------
+
+/** FTS 虚表建表 + 删行同步触发器(独立 FTS 表,非 external content) */
+function ensureFts(db: Database): void {
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(
+      doc_id UNINDEXED,
+      title, body, server, host
+    );
+    CREATE TRIGGER IF NOT EXISTS assets_fts_del AFTER DELETE ON assets BEGIN
+      DELETE FROM assets_fts WHERE rowid = old.rowid;
+    END;
+  `)
+}
+
+/** raw_json 提取 FTS 文本列(title/body/server/host);缺失容错为空串 */
+export function ftsColumns(rawJson: string): { title: string; body: string; server: string; host: string } {
+  try {
+    const d = JSON.parse(rawJson) as {
+      service?: { http?: { title?: unknown; body?: unknown; server?: unknown; host?: unknown } }
+    }
+    const h = d.service?.http ?? {}
+    const s = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '')
+    return { title: s(h.title, 500), body: s(h.body, 8000), server: s(h.server, 200), host: s(h.host, 300) }
+  } catch {
+    return { title: '', body: '', server: '', host: '' }
+  }
+}
+
+/** 单行 FTS 写入(UPSERT 后调用;同 rowid 先删后插,幂等) */
+function ftsUpsert(db: Database, rowid: number | bigint, rawJson: string): void {
+  const c = ftsColumns(rawJson)
+  db.query('DELETE FROM assets_fts WHERE rowid = ?').run(rowid)
+  db.query(
+    'INSERT INTO assets_fts(rowid, doc_id, title, body, server, host) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(rowid, ftsDocId(rowid, rawJson), c.title, c.body, c.server, c.host)
+}
+
+/** doc_id 从 raw_json 提取(FTS 行带 doc_id 便于直查);取不到回落 rowid 串 */
+function ftsDocId(rowid: number | bigint, rawJson: string): string {
+  try {
+    const id = (JSON.parse(rawJson) as { id?: unknown }).id
+    return typeof id === 'string' ? id : String(rowid)
+  } catch {
+    return String(rowid)
+  }
+}
+
+/** 存量库回填(建虚表时已入库的行);重跑幂等 */
+export function backfillFts(month: Month): number {
+  const db = getMonthDb(month)
+  const rows = db.query(
+    'SELECT a.rowid AS rid, a.raw_json FROM assets a LEFT JOIN assets_fts f ON f.rowid = a.rowid WHERE f.rowid IS NULL',
+  ).all() as Array<{ rid: number; raw_json: string }>
+  const tx = db.transaction((list: typeof rows) => {
+    for (const r of list) ftsUpsert(db, r.rid, r.raw_json)
+  })
+  tx(rows)
+  return rows.length
+}
+
+/** 跨月 FTS 检索:各月库 MATCH 后 UNION,返回带月标与高亮片段的行 */
+export function ftsSearch(
+  match: string,
+  opts: { limit?: number; months?: Month[] } = {},
+): Array<{ month: string; doc_id: string; ip: string; port: number | null; title: string; snippet: string }> {
+  const limit = opts.limit ?? 20
+  const months = opts.months ?? listMonths()
+  const out: Array<{ month: string; doc_id: string; ip: string; port: number | null; title: string; snippet: string }> = []
+  for (const m of months) {
+    const db = getMonthDb(m)
+    const rows = db.query(`
+      SELECT a.doc_id, a.ip, a.port, f.title AS title,
+             snippet(assets_fts, 2, '[', ']', '…', 12) AS snip
+      FROM assets_fts f JOIN assets a ON a.rowid = f.rowid
+      WHERE assets_fts MATCH ?
+        AND (f.title != '' OR f.body != '' OR f.server != '' OR f.host != '')
+      LIMIT ?
+    `).all(match, limit) as Array<{ doc_id: string; ip: string; port: number | null; title: string; snip: string }>
+    for (const r of rows) out.push({ month: m, doc_id: r.doc_id, ip: r.ip, port: r.port, title: r.title, snippet: r.snip })
+    if (out.length >= limit) break
+  }
+  return out.slice(0, limit)
+}
 
 export interface AggSnapshot {
   queryKey: string

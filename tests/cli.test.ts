@@ -274,6 +274,33 @@ describe('CLI 离线命令', () => {
     expect(Array.isArray(out.runs)).toBe(true)
   })
 
+  test('fts: 归档全文检索(种子命中/列限定/月库过滤)', async () => {
+    const { upsertAssets, getDb, dataMonth } = await import('../src/archive')
+    const docId = (s: string) => s as import('../src/types').DocId
+    upsertAssets(getDb(), [
+      { doc_id: docId('9.9.9.9_80_tcp'), ip: '9.9.9.9', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '中国', time: 't', raw_json: JSON.stringify({ id: '9.9.9.9_80_tcp', service: { http: { title: 'b374k shell', body: 'FilesMan webshell login', server: 'Apache', host: 'evil.test' } } }) },
+      { doc_id: docId('7.7.7.7_80_tcp'), ip: '7.7.7.7', port: 80, transport: 'tcp', service_name: 'http', hostname: '', country: '', time: 't', raw_json: JSON.stringify({ id: '7.7.7.7_80_tcp', service: { http: { title: 'Biz', body: 'nothing special', server: 'Nginx', host: 'ok.test' } } }) },
+    ])
+    // 全库裸词
+    const bare = await run(['fts', 'FilesMan'])
+    expect(bare.exit).toBe(0)
+    expect(bare.out.count).toBeGreaterThanOrEqual(1)
+    const hit = bare.out.hits.find((h: any) => h.doc_id === '9.9.9.9_80_tcp')
+    expect(hit).toBeTruthy()
+    expect(hit.snippet).toContain('[FilesMan]')
+    // 列限定:title 列
+    const byTitle = await run(['fts', 'title:b374k'])
+    expect(byTitle.out.count).toBeGreaterThanOrEqual(1)
+    expect(byTitle.out.hits.some((h: any) => h.doc_id === '9.9.9.9_80_tcp')).toBe(true)
+    // 列限定 + AND:同列同词组合
+    const and = await run(['fts', 'server:Apache AND body:webshell'])
+    expect(and.out.count).toBeGreaterThanOrEqual(1)
+    // 非法月库
+    const bad = await run(['fts', 'x', '--month', '2026-13'])
+    expect(bad.exit).toBe(1)
+    expect(bad.out.code).toBe('USAGE')
+  })
+
   test('doctor: 离线体检信封', async () => {
     const { out, exit } = await run(['doctor'])
     expect(exit).toBe(0)
@@ -552,8 +579,9 @@ describe('MCP stdio', () => {
     // 直出面:每个命令注册为常规工具,而非 search_tools 渐进发现四件套
     const list = byId(2)
     const toolNames = (list?.result?.tools ?? []).map((t: any) => t.name)
-    expect(toolNames.length).toBeGreaterThanOrEqual(23)
+    expect(toolNames.length).toBeGreaterThanOrEqual(24)
     expect(toolNames).toContain('domain')
+    expect(toolNames).toContain('fts')
     for (const n of ['syntax', 'doctor', 'service-search', 'user', 'export']) expect(toolNames).toContain(n)
     expect(toolNames).not.toContain('search_tools')
     const called = byId(3)

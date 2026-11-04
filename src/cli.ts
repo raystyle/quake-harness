@@ -14,6 +14,7 @@ import { registerDomainCommands } from './commands/domain'
 import { registerHostCommands } from './commands/host'
 import { registerReferenceCommands } from './commands/reference'
 import { registerLocalCommands } from './commands/local'
+import { registerFtsCommands } from './commands/fts'
 import { registerDoctorCommands } from './commands/doctor'
 
 registerAccountCommands(cli)       // user
@@ -26,6 +27,7 @@ registerDomainCommands(cli)        // domain
 registerHostCommands(cli)          // host-search, host-scroll, host-agg, host-honeypot
 registerReferenceCommands(cli)     // fields, icon
 registerLocalCommands(cli)         // syntax, rate, cache, export
+registerFtsCommands(cli)          // fts(归档全文检索)
 registerDoctorCommands(cli)       // doctor
 
 // SIGINT/SIGTERM:清理后非零退出(Windows 下 SIGTERM 由 Bun 模拟)
