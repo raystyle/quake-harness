@@ -32,13 +32,15 @@ afterAll(() => {
 
 /** 跑 CLI 并解析输出信封;节流由 src/ratelimit.ts 自适应控制器负责(测试检验生产机制);
  *  残留 q3005 时再试一次(子进程内部会自动等静默期) */
-async function run(args: string[]): Promise<{ out: any; exit: number }> {
-  let r = await runOnce(args)
-  if (r.out?.code === 'q3005') r = await runOnce(args)
+// 默认子进程超时 90s:冒烟组网络命令在限流静默期叠加下 30s 不稳(实测多次随机超时);
+// 离线组本地逻辑远低于此不受影响
+async function run(args: string[], timeoutMs = 90000): Promise<{ out: any; exit: number }> {
+  let r = await runOnce(args, timeoutMs)
+  if (r.out?.code === 'q3005') r = await runOnce(args, timeoutMs)
   return r
 }
 
-async function runOnce(args: string[], timeoutMs = 30000): Promise<{ out: any; exit: number }> {
+async function runOnce(args: string[], timeoutMs = 90000): Promise<{ out: any; exit: number }> {
   const proc = Bun.spawnSync(['bun', 'src/cli.ts', ...args, '--json'], {
     cwd: ROOT,
     env: { ...process.env, QUAKEH_HOME: home },
@@ -592,8 +594,8 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(out.net_probe.host).toContain('quake.360.net')
   })
 
-  nt('domain: 域名资产查询(官方 quake_rs 同款)', async () => {
-    const { out, exit } = await run(['domain', 'qq.com', '--size', '2'])
+  test('domain: 域名资产查询(官方 quake_rs 同款)', async () => {
+    const { out, exit } = await run(['domain', 'qq.com', '--size', '2'], 90000)
     expect(exit).toBe(0)
     expect(out.total).toBeGreaterThan(0)
     expect(out.count).toBe(2)
@@ -601,10 +603,10 @@ describe.skipIf(!hasKey)('API 冒烟', () => {
     expect(doc.domain).toContain('qq.com')
     expect(doc.ip).toBeTruthy()
     // 过滤器组合:剔 CDN 后 total 应收窄
-    const filtered = await run(['domain', 'qq.com', '--size', '1', '--noCdn'])
+    const filtered = await run(['domain', 'qq.com', '--size', '1', '--noCdn'], 90000)
     expect(filtered.exit).toBe(0)
     expect(filtered.out.total).toBeLessThan(out.total)
-  })
+  }, 90000)
 
   test('domain: 同参数二跑命中缓存(时间窗取整到天,cache_key 稳定)', async () => {
     // 回归:时间窗曾精确到秒,cache_key 每次都变,同参重复查询永远 miss(实扣积分)
