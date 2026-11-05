@@ -47,3 +47,5 @@ qkhmm-*
 qkhchk-*
 qkhdbg*
 .tmp-*
+analysis/
+tests/查询历史.csv
